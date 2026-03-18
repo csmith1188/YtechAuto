@@ -16,22 +16,6 @@ app.set('view engine', 'ejs');
 app.use(express.static('public'))
 app.set('views', path.join(__dirname, 'public', 'views'));
 
-const db = new sqlite3.Database('database/database.sql', (err) => {
-    if (err) return console.error('Error connecting to database:', err.message);
-    //you can run database migrations in here 
-});
-
-app.get('/', (req, res) => {
-    res.render('index');
-});
-
-app.get('/customer', (req, res) => {
-    res.render('customer');
-});
-
-app.get('/mechanic', (req, res) => {
-    res.render('mechanic');
-});
 
 server.listen(PORT, () => {
     console.log(`Example app listening on port http://localhost:${PORT}`);
