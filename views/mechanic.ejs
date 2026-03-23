@@ -385,8 +385,7 @@
       <button type="button" class="btn btn-primary" id="upload-btn" style="margin-top:1rem">Upload</button>
     </section>
   </main>
-
-  <script src="js/mockup.js"></script>
+  
   <script src="js/form.js"></script>
   <script>
     document.getElementById('repForm').addEventListener('submit', function() {
@@ -406,6 +405,8 @@
     let custAddress = document.getElementById('custAddress').value;
     let custPhone = document.getElementById('custPhone').value;
     let custEmail = document.getElementById('custEmail').value;
+    let timeIn = document.getElementById('timeIn').value;
+    let timeOut = document.getElementById('timeOut').value;
     // Validation logic
     let errors = [];
     
@@ -421,8 +422,6 @@
     tax = parseFloat(tax);
     totEstimate = parseFloat(totEstimate);
     custAddress = custAddress.trim();
-    let timeIn = document.getElementById('timeIn').value;
-    let timeOut = document.getElementById('timeOut').value;
     roNum = Number(roNum.trim());
     if (isNaN(roNum)) {
     errors.push('Repair Order number must be a valid number.');
@@ -431,7 +430,7 @@
     if (licensePlate.length > 10) {
     errors.push('License plate Number too long. Max 10 characters.');
     }
-    if (vin.length > 17) {
+    if (vin.length >= 17) {
     errors.push('VIN too long. Max 17 characters.');
     }
     if (custName === '') {
