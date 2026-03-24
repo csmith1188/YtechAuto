@@ -4,29 +4,33 @@ document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('repForm');
   if (!form) return;
 
-  function populateTimeDropdowns() {
-    const timeInSelect = document.getElementById('timeIn');
-    const timeOutSelect = document.getElementById('timeOut');
-    if (!timeInSelect || !timeOutSelect) return;
+  // Populate the composite time pickers (hour, minute, AM/PM)
+  function populateTimePickers() {
+    const parts = ['timeIn', 'timeOut'];
+    parts.forEach(prefix => {
+      const hour = document.getElementById(prefix + 'Hour');
+      const minute = document.getElementById(prefix + 'Minute');
+      const ampm = document.getElementById(prefix + 'AmPm');
+      if (!hour || !minute || !ampm) return;
 
-    // Clear extras (keep first placeholder)
-    timeInSelect.length = 1;
-    timeOutSelect.length = 1;
+      // hours 1-12
+      hour.innerHTML = '';
+      hour.add(new Option('Hour', ''));
+      for (let h = 1; h <= 12; h++) hour.add(new Option(String(h), String(h)));
 
-    for (let hour = 1; hour <= 12; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const mm = minute.toString().padStart(2, '0');
-        const base = `${hour}:${mm}`;
-
-        const am = `${base} AM`;
-        const pm = `${base} PM`;
-
-        timeInSelect.add(new Option(am, am));
-        timeOutSelect.add(new Option(am, am));
-        timeInSelect.add(new Option(pm, pm));
-        timeOutSelect.add(new Option(pm, pm));
+      // minutes: 00 - 59 (every minute)
+      minute.innerHTML = '';
+      minute.add(new Option('Min', ''));
+      for (let m = 0; m < 60; m++) {
+        const mm = m.toString().padStart(2, '0');
+        minute.add(new Option(mm, mm));
       }
-    }
+
+      // AM/PM
+      ampm.innerHTML = '';
+      ampm.add(new Option('AM/PM', ''));
+      ['AM','PM'].forEach(x => ampm.add(new Option(x, x)));
+    });
   }
 
   function showErrors(errors) {
@@ -79,11 +83,11 @@ document.addEventListener('DOMContentLoaded', function () {
       errors.push('Technician name contains invalid characters.');
     }
 
-    // timeIn/timeOut required
-    const timeIn = timeInEl ? timeInEl.value : '';
-    const timeOut = timeOutEl ? timeOutEl.value : '';
-    if (!timeIn) errors.push('Time In must be selected.');
-    if (!timeOut) errors.push('Time Out must be selected.');
+  // timeIn/timeOut required (composite pickers update the hidden inputs)
+  const timeIn = timeInEl ? timeInEl.value : '';
+  const timeOut = timeOutEl ? timeOutEl.value : '';
+  if (!timeIn) errors.push('Time In must be selected.');
+  if (!timeOut) errors.push('Time Out must be selected.');
 
     // customer info
     const custName = custNameEl ? custNameEl.value.trim() : '';
@@ -147,6 +151,115 @@ document.addEventListener('DOMContentLoaded', function () {
     return true;
   }
 
-  populateTimeDropdowns();
+  populateTimePickers();
+
+  // compute total time (hours) from composite pickers and write to #totTime
+  function computeTotalTime() {
+    const inHour = document.getElementById('timeInHour').value;
+    const inMin = document.getElementById('timeInMinute').value;
+    const inAmPm = document.getElementById('timeInAmPm').value;
+    const outHour = document.getElementById('timeOutHour').value;
+    const outMin = document.getElementById('timeOutMinute').value;
+    const outAmPm = document.getElementById('timeOutAmPm').value;
+    const totTimeField = document.getElementById('totTime');
+    const hiddenIn = document.getElementById('timeIn');
+    const hiddenOut = document.getElementById('timeOut');
+
+    if (!inHour || !inMin || !inAmPm || !outHour || !outMin || !outAmPm) {
+      if (totTimeField) totTimeField.value = '';
+      if (hiddenIn) hiddenIn.value = '';
+      if (hiddenOut) hiddenOut.value = '';
+      return;
+    }
+
+    const inStr = `${inHour}:${inMin} ${inAmPm}`;
+    const outStr = `${outHour}:${outMin} ${outAmPm}`;
+    if (hiddenIn) hiddenIn.value = inStr;
+    if (hiddenOut) hiddenOut.value = outStr;
+
+    function timeToMinutes(timeStr) {
+      let [time, period] = timeStr.split(' ');
+      let [hours, minutes] = time.split(':').map(Number);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    }
+
+    let tIn = timeToMinutes(inStr);
+    let tOut = timeToMinutes(outStr);
+    if (tOut <= tIn) tOut += 24 * 60; // cross-midnight
+    const diff = tOut - tIn;
+    const decimalHours = diff / 60;
+    if (totTimeField) totTimeField.value = decimalHours.toFixed(2);
+  }
+
+  // wire pickers to computeTotalTime
+  ['timeIn','timeOut'].forEach(prefix => {
+    ['Hour','Minute','AmPm'].forEach(suffix => {
+      const el = document.getElementById(prefix + suffix);
+      if (el) el.addEventListener('change', computeTotalTime);
+    });
+  });
+
+  // --- Signature canvas setup ---
+  (function setupSignature() {
+    const canvas = document.getElementById('signatureCanvas');
+    const signatureData = document.getElementById('signatureData');
+    const clearBtn = document.getElementById('clearSignature');
+    if (!canvas || !signatureData) return;
+
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let hasSignature = false;
+    let lastX = 0, lastY = 0;
+
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // pointer events (works for mouse and touch)
+    canvas.addEventListener('pointerdown', function (e) {
+      canvas.setPointerCapture(e.pointerId);
+      isDrawing = true;
+      hasSignature = true;
+      const rect = canvas.getBoundingClientRect();
+      lastX = e.clientX - rect.left;
+      lastY = e.clientY - rect.top;
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+    });
+
+    canvas.addEventListener('pointermove', function (e) {
+      if (!isDrawing) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      lastX = x; lastY = y;
+    });
+
+    function endDraw(e) {
+      if (!isDrawing) return;
+      isDrawing = false;
+      try { canvas.releasePointerCapture && canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+      // save to hidden input
+      try { signatureData.value = canvas.toDataURL('image/png'); } catch (err) { /* ignore */ }
+    }
+
+    canvas.addEventListener('pointerup', endDraw);
+    canvas.addEventListener('pointercancel', endDraw);
+    canvas.addEventListener('pointerout', endDraw);
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        hasSignature = false;
+        signatureData.value = '';
+        console.log('Signature cleared');
+      });
+    }
+  })();
   form.addEventListener('submit', validateAndSubmit);
 });
