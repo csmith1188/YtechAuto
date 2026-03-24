@@ -49,10 +49,6 @@ router.post('/mechanic', (req, res) => {
     console.log('Mileage Out:', mileOut);
     console.log('Concern:', concern);
     console.log('Diagnosis:', diagnosis);
-    console.log('Subtotal Parts:', subTotParts);
-    console.log('Subtotal Labor:', subTotLabor);
-    console.log('Tax:', tax);
-    console.log('Total Estimate:', totEstimate);
     console.log('Signature Date:', sDate);
     console.log('Signature:', signature);
 
