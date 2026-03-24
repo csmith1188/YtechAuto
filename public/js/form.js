@@ -110,22 +110,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // vehicle info
     const vehicle = vehicleEl ? vehicleEl.value.trim() : '';
-    if (!vehicle) errors.push('Vehicle Year/Make/Model is required.');
 
     const vin = vinEl ? vinEl.value.trim() : '';
     if (vin && vin.length > 17) errors.push('VIN too long. Max 17 characters.');
 
     const licensePlate = licenseEl ? licenseEl.value.trim() : '';
     if (licensePlate && licensePlate.length > 10) errors.push('License plate too long. Max 10 characters.');
-
-    // mileage
-    const mileIn = mileInEl ? Number(mileInEl.value) : NaN;
-    const mileOut = mileOutEl ? Number(mileOutEl.value) : NaN;
-    if (isNaN(mileIn) || isNaN(mileOut)) errors.push('Mileage In and Out must be valid numbers.');
-    else {
-      if (mileIn < 0 || mileOut < 0) errors.push('Mileage cannot be negative.');
-      if (mileOut < mileIn) errors.push('Mileage Out cannot be less than Mileage In.');
-    }
 
     // diagnosis required (not part of 'concern/recommended/comments')
     const diagnosis = diagnosisEl ? diagnosisEl.value.trim() : '';
