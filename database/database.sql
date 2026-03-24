@@ -51,12 +51,20 @@ CREATE TABLE vechicleInfo (
     currentMileage INTEGER NOT NULL,
     oldMileage INTEGER NOT NULL,
     technicain TEXT NOT NULL,
-    
+    carDate TEXT NOT NULL,
     plate TEXT NOT NULL,
-    year INTEGER NOT NULL
+    carYear INTEGER NOT NULL
 );
 
-CREATE TABLE Courtesy (
+CREATE TABLE courtesy (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    
+    partName TEXT NOT NULL, 
+    status TEXT NOT NULL, 
+    notes TEXT
 );
+
+INSERT INTO courtesy (partName, status, notes)
+VALUES
+('Brakes', 'Needs Service', 'Brake pads are worn.'),
+('Engine', 'OK', ''),
+('Tires', 'Monitor Soon', 'Tread is wearing thin.');
