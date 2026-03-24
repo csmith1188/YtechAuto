@@ -53,7 +53,7 @@
        </div>
         <div class="form-group">
         <label for="totTime">Total Time</label>
-         <input type="text" name="totTime" id="totTime" placeholder="e.g. 2.5 hrs">
+         <input type="text" name="totTime" id="totTime" placeholder="TBD" readonly style="background-color: #f8f9fa;">
         </div>
         </div>
 
@@ -399,6 +399,70 @@
         tableBody.appendChild(newRow);
       });
     });
+        function populateTimeDropdowns() {
+        let timeInSelect = document.getElementById('timeIn');
+        let timeOutSelect = document.getElementById('timeOut');
+    
+   
+       for (let hour = 1; hour <= 12; hour++) {
+           for (let minute = 0; minute < 60; minute += 30) {
+            let timeString = `${hour}:${minute.toString().padStart(2, '0')}`;
+            
+            // AM times
+            let amOption1 = new Option(`${timeString} AM`, `${timeString} AM`);
+            let amOption2 = new Option(`${timeString} AM`, `${timeString} AM`);
+            timeInSelect.add(amOption1);
+            timeOutSelect.add(amOption2);
+            
+            // PM times
+            let pmOption1 = new Option(`${timeString} PM`, `${timeString} PM`);
+            let pmOption2 = new Option(`${timeString} PM`, `${timeString} PM`);
+            timeInSelect.add(pmOption1);
+            timeOutSelect.add(pmOption2);
+            }
+        }
+    }
+    populateTimeDropdowns();
+    //tottimecalc
+    function calculateTotalTime() {
+    let timeInValue = document.getElementById('timeIn').value;
+    let timeOutValue = document.getElementById('timeOut').value;
+    let totTimeField = document.getElementById('totTime');
+    
+    if (!timeInValue || !timeOutValue) {
+        totTimeField.value = '';
+        return;
+    }
+
+    function timeToMinutes(timeStr) {
+        let [time, period] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        
+        return hours * 60 + minutes;
+    }
+    
+    let timeInMinutes = timeToMinutes(timeInValue);
+    let timeOutMinutes = timeToMinutes(timeOutValue);
+
+    if (timeOutMinutes <= timeInMinutes) {
+        timeOutMinutes += 24 * 60;
+    }
+    
+    let totalMinutes = timeOutMinutes - timeInMinutes;
+    let hours = Math.floor(totalMinutes / 60);
+    let minutes = totalMinutes % 60;
+
+    let decimalHours = hours + (minutes / 60);
+    totTimeField.value = decimalHours.toFixed(1);
+    }
+
+    document.getElementById('timeIn').addEventListener('change', calculateTotalTime);
+    document.getElementById('timeOut').addEventListener('change', calculateTotalTime);
+
+  </script>
     </script>
 </body>
 </html>
