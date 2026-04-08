@@ -96,7 +96,7 @@ CREATE TABLE signitures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
 
-);
+)
 
 -- "uploads/ filenamefromdb" + ".png"
 
