@@ -44,6 +44,8 @@ const mechanicRouter = require('./routes/mechanic');
 const customerRouter = require('./routes/customer');
 const customerDisRouter = require('./routes/customerDis');
 const mechanicDisRouter = require('./routes/mechanicDis');
+const mechanicEditRouter = require('./routes/mechanicEdit');
+const ticketRoute = require('./routes/ticket');
 const authRouter = require('./routes/auth');
 
 app.use('/', indexRouter);
@@ -52,6 +54,8 @@ app.use('/', customerRouter);
 app.use('/', customerDisRouter);
 app.use('/', authRouter);
 app.use('/', mechanicDisRouter);
+app.use('/', mechanicEditRouter);
+app.use('/', ticketRoute);
 
 
 server.listen(PORT, () => {
