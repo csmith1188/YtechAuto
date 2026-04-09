@@ -90,8 +90,7 @@ CREATE TABLE steeringSupensionTable (
     left TEXT,
     right TEXT,
     front TEXT,
-    rear TEXT,
-    notes TEXT
+    rear TEXT
 );
 
 CREATE TABLE brakesTable (
@@ -101,7 +100,7 @@ CREATE TABLE brakesTable (
     Spec TEXT NOT NULL,
     actual TEXT NOT NULL,
     status TEXT,
-    notes TEXT
+    comments TEXT
 );
 
 CREATE TABLE emissionsTable (
@@ -115,9 +114,21 @@ CREATE TABLE emissionsTable (
 CREATE TABLE emissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticketID INTEGER NOT NULL,
-    item TEXT NOT NULL,
-    input TEXT NOT NULL
+    OBD TEXT NOT NULL,
+    inspections TEXT NOT NULL,
+    emissionsDue TEXT NOT NULL,
+    nextOilChange TEXT NOT NULL,
+    inspectedBy TEXT NOT NULL,
+    reInspectedBy TEXT NOT NULL,
+    warnings TEXT NOT NULL,
+    comments TEXT
 )
+
+CREATE TABLE warningsTable (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticketID INTEGER NOT NULL,
+    item TEXT NOT NULL,
+);
 
 -- "uploads/ filenamefromdb" + ".png"
 
