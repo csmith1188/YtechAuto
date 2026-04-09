@@ -90,9 +90,14 @@ CREATE TABLE emissions (
     ticketID INTEGER NOT NULL,
     item TEXT NOT NULL,
     input TEXT NOT NULL
+);
+
+CREATE TABLE pictures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
 )
 
--- "uploads/ filenamefromdb" + ".png"
+-- "upload/ filenamefromdb" + ".png"
 
 -- INSERT INTO courtesy (ticketID, partName, status, notes)
 -- VALUES
