@@ -51,6 +51,7 @@ router.post('/mechanic', (req, res) => {
     let diagnosis = req.body.diagnosis;
     let sDate = req.body.sDate;
     let signature = req.body.signature;
+   
 
     const db = req.app.locals.db;
     if (!db) {
