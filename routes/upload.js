@@ -42,3 +42,5 @@ app.post('/upload', upload.single('image'), (req, res) => {
             res.status(200).json({ message: 'File uploaded successfully', file: req.file });
         });
 });   
+
+module.exports = router;
