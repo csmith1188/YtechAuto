@@ -134,14 +134,25 @@ CREATE TABLE warningsTable (
 
 CREATE TABLE pictures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ticketID INTEGER NOT NULL,
+    ticketID INTEGER,
     filename TEXT NOT NULL,
     originalName TEXT NOT NULL,
     relativePath TEXT NOT NULL,
     mimeType TEXT NOT NULL,
     sizeBytes INTEGER NOT NULL,
     uploadDate TEXT DEFAULT (datetime('now'))
-)
+);
+
+CREATE TABLE videos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticketID INTEGER,
+    filename TEXT NOT NULL,
+    originalName TEXT NOT NULL,
+    relativePath TEXT NOT NULL,
+    mimeType TEXT NOT NULL,
+    sizeBytes INTEGER NOT NULL,
+    uploadDate TEXT DEFAULT (datetime('now'))
+);
 
 CREATE TABLE signatures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -249,93 +249,107 @@ document.addEventListener('DOMContentLoaded', function () {
       const previewEl = document.getElementById('image-preview');
       if (!zone || !fileInput || !uploadBtn) return;
 
-      let selectedImage = null;
-      const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+      // enable multi-select on the input (ensure HTML has multiple attribute)
+      fileInput.multiple = true;
 
-      function showPreview(file) {
+      let selectedFiles = []; // array of File
+      const MAX_BYTES = 5 * 1024 * 1024; // 5MB per file
+      const MAX_FILES = 10;
+
+      function showPreview(files) {
         if (!previewEl) return;
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          if (previewEl.tagName && previewEl.tagName.toLowerCase() === 'img') {
-            previewEl.src = e.target.result;
-          } else {
-            previewEl.innerHTML = '';
+        previewEl.innerHTML = '';
+        const list = document.createElement('div');
+        list.style.display = 'flex';
+        list.style.flexWrap = 'wrap';
+        files.forEach((file) => {
+          const reader = new FileReader();
+          reader.onload = function (e) {
             const img = document.createElement('img');
             img.src = e.target.result;
-            img.style.maxWidth = '160px';
-            img.style.maxHeight = '120px';
-            img.alt = 'Selected image preview';
-            previewEl.appendChild(img);
-          }
-        };
-        reader.readAsDataURL(file);
+            img.style.width = '120px';
+            img.style.height = '90px';
+            img.style.objectFit = 'cover';
+            img.style.margin = '4px';
+            img.alt = file.name;
+            list.appendChild(img);
+          };
+          reader.readAsDataURL(file);
+        });
+        previewEl.appendChild(list);
       }
 
-      // clicking trigger opens picker
       if (trigger) {
         trigger.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
       }
 
-      // click on zone opens picker (but avoid clicking the upload button)
       zone.addEventListener('click', function (e) {
         if (e.target !== trigger && e.target !== uploadBtn) fileInput.click();
       });
 
-      // dragover/drop support
       zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('dragover'); });
       zone.addEventListener('dragleave', function (e) { e.preventDefault(); zone.classList.remove('dragover'); });
       zone.addEventListener('drop', function (e) {
         e.preventDefault(); zone.classList.remove('dragover');
-        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (f) {
-          // guard: setting input.files can throw in some environments
-          try { fileInput.files = e.dataTransfer.files; } catch (err) { console.warn('Could not set fileInput.files', err); }
-          handleFileChosen(f);
+        const fileList = e.dataTransfer && e.dataTransfer.files;
+        if (fileList && fileList.length) {
+          const arr = Array.from(fileList);
+          handleFilesChosen(arr);
+          // guard: setting input.files may throw in some browsers
+          try { fileInput.files = fileList; } catch (err) { console.warn('Could not set fileInput.files', err); }
         }
       });
 
       fileInput.addEventListener('change', function (e) {
-        const f = e.target.files && e.target.files[0];
-        if (f) handleFileChosen(f);
+        const fileList = e.target.files;
+        if (fileList && fileList.length) handleFilesChosen(Array.from(fileList));
       });
 
-      function handleFileChosen(f) {
-        if (!f) return;
-        if (!f.type.startsWith('image/')) {
-          alert('Please select an image file.');
-          fileInput.value = '';
-          selectedImage = null;
-          return;
+      function handleFilesChosen(filesArr) {
+        // merge and dedupe by name+size to avoid duplicates
+        const combined = selectedFiles.concat(filesArr);
+        const dedup = [];
+        const seen = new Set();
+        for (const f of combined) {
+          const key = f.name + '|' + f.size;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          // validation
+          if (!f.type.startsWith('image/')) continue;
+          if (f.size > MAX_BYTES) continue;
+          dedup.push(f);
+          if (dedup.length >= MAX_FILES) break;
         }
-        if (f.size > MAX_BYTES) {
-          alert('Image is too large (max 5MB).');
-          fileInput.value = '';
-          selectedImage = null;
-          return;
+        selectedFiles = dedup;
+        if (selectedFiles.length === 0) {
+          uploadBtn.disabled = true;
+          uploadBtn.style.opacity = '0.5';
+        } else {
+          uploadBtn.disabled = false;
+          uploadBtn.style.opacity = '1';
         }
-        selectedImage = f;
         const p = zone.querySelector('p');
-        if (p) p.textContent = `Selected: ${f.name}`;
-        uploadBtn.disabled = false;
-        uploadBtn.style.opacity = '1';
-        showPreview(f);
+        if (p) p.textContent = `Selected ${selectedFiles.length} image(s)`;
+        showPreview(selectedFiles);
       }
 
       uploadBtn.addEventListener('click', function () {
-        if (!selectedImage) { alert('Please select an image first.'); return; }
+        if (!selectedFiles || selectedFiles.length === 0) { alert('Please select one or more images first.'); return; }
         const fd = new FormData();
-        // MATCH SERVER: use field name 'image' and route '/upload-image'
-        fd.append('image', selectedImage);
+        // append multiple files using the same field name "image"
+        selectedFiles.forEach(f => fd.append('image', f));
+        // include ticketID if needed: fd.append('ticketID', ticketIdValue);
         uploadBtn.textContent = 'Uploading...'; uploadBtn.disabled = true;
         fetch('/upload-image', { method: 'POST', body: fd })
           .then(res => res.json())
           .then(data => {
             if (data && data.success) {
-              alert('Image uploaded successfully!');
-              const p = zone.querySelector('p'); if (p) p.textContent = 'Image uploaded successfully!';
+              alert('Images uploaded successfully!');
+              const p = zone.querySelector('p'); if (p) p.textContent = 'Upload complete';
               zone.style.backgroundColor = '#d4edda'; zone.style.borderColor = '#c3e6cb';
               fileInput.value = '';
-              selectedImage = null;
+              selectedFiles = [];
+              previewEl && (previewEl.innerHTML = '');
             } else {
               alert('Upload failed: ' + (data && data.message ? data.message : 'Unknown'));
             }
@@ -874,3 +888,4 @@ if (sigData) {
     .then(res => { if (res.success) console.log('Saved:', res.path); else console.error(res); })
     .catch(err => console.error('Signature upload failed', err));
 }
+

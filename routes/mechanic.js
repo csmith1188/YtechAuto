@@ -47,12 +47,6 @@ const imageUpload = multer({
     }
 });
 
-
-
-
-
-
-
 router.get('/mechanic', (req, res) => {
     res.render('mechanic');
 });
@@ -138,17 +132,31 @@ router.post('/mechanic', (req, res) => {
 
 // video upload route (unchanged behavior)
 router.post('/upload-video', videoUpload.single('video'), (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
-        const rel = path.relative(path.join(__dirname, '..'), req.file.path).split(path.sep).join('/');
-        res.json({ success: true, filename: req.file.filename, originalName: req.file.originalname, path: rel });
-    } catch (err) {
-        console.error('Video upload error:', err);
-        res.status(500).json({ success: false, message: 'Upload failed' });
-    }
+    const db = req.app.locals.db;
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+    const file = req.file;
+    const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
+    const insertSql = `INSERT INTO videos (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
+                     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
+    const params = [req.body.ticketID || null, file.filename, file.originalname, relativePath, file.mimetype, file.size];
+
+    db.run(insertSql, params, function (err) {
+        if (err) {
+            console.error('DB insert failed, removing uploaded file:', err);
+            // remove the saved file to avoid orphan
+            fs.unlink(file.path, (unlinkErr) => {
+                if (unlinkErr) console.error('Failed to unlink file after DB error:', unlinkErr);
+                return res.status(500).json({ success: false, message: 'Database error' });
+            });
+            return;
+        }
+        // success
+        res.json({ success: true, id: this.lastID, path: relativePath });
+    });
 });
 
-// image upload route - SINGLE field 'image' to match client
+// image upload route
 router.post('/upload-image', imageUpload.single('image'), (req, res) => {
     const db = req.app.locals.db;
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
@@ -173,8 +181,5 @@ router.post('/upload-image', imageUpload.single('image'), (req, res) => {
         res.json({ success: true, id: this.lastID, path: relativePath });
     });
 });
-
-
-
 
 module.exports = router;
