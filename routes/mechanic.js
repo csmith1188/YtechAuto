@@ -115,7 +115,7 @@ router.get('/mechanic', (req, res) => {
                         const steeringJoinSql = `
                           SELECT sst.*, ss.ticketID AS steeringTicketID
                           FROM steeringSupensionTable sst
-                          INNER JOIN steeringSuspension ss ON sst.steeringSuspensionID = ss.id
+                          INNER JOIN steeringSuspensionTable ss ON sst.steeringSuspensionID = ss.id
                           WHERE ss.ticketID = ?
                           ORDER BY sst.id ASC
                         `;
