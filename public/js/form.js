@@ -1957,3 +1957,101 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { capture: true });
   }
 });
+
+(function wireSignatureSaveButton() {
+  const findTicketId = () => {
+    const el = document.getElementById('ticketId') || document.getElementById('vehicle-ticketId') || document.getElementById('ticketIdHidden');
+    if (el && el.value) return el.value;
+    if (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) return window.__SERVER_TICKET__.id;
+    return null;
+  };
+
+  const btn = document.getElementById('saveSignature') ||
+              document.getElementById('saveSignatureBtn') ||
+              document.querySelector('[data-action="save-signature"]');
+  if (!btn) return;
+
+  btn.addEventListener('click', async function (ev) {
+    ev.preventDefault(); ev.stopPropagation();
+
+    const ticketId = findTicketId();
+    if (!ticketId) { alert('Save the ticket first to attach the signature.'); return; }
+
+    const canvas = document.getElementById('signatureCanvas');
+    const signatureDataField = document.getElementById('signatureData');
+    if (!canvas || !signatureDataField || !signatureDataField.value) { alert('No signature to save.'); return; }
+
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = 'Saving...';
+
+    try {
+      // create blob from canvas
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Failed to create image blob');
+
+      const fd = new FormData();
+      const clientFileNameEl = document.getElementById('signatureFilename') || document.querySelector('input[name="signatureFilename"]');
+      const fileName = (clientFileNameEl && clientFileNameEl.value) ? clientFileNameEl.value : 'signature.png';
+      fd.append('signature', blob, fileName);
+      fd.append('ticketID', String(ticketId));
+
+      const resp = await fetch('/upload-signature', { method: 'POST', body: fd });
+      let json = null;
+      try { json = await resp.json(); } catch (e) { /* ignore */ }
+
+      if (!resp.ok || !json || !json.success) {
+        console.error('Signature upload failed', resp.status, json);
+        alert('Failed to save signature on server. See console for details.');
+        btn.disabled = false;
+        btn.textContent = oldText;
+        return;
+      }
+
+      // ensure hidden inputs on the form
+      const form = document.getElementById('repForm') || document.querySelector('form');
+      const ensureHidden = (name, id) => {
+        let el = document.querySelector(`input[name="${name}"]`) || document.getElementById(id);
+        if (!el) {
+          el = document.createElement('input');
+          el.type = 'hidden';
+          el.name = name;
+          if (id) el.id = id;
+          form && form.appendChild(el);
+        }
+        return el;
+      };
+
+      const idEl = ensureHidden('signatureId', 'signatureId');
+      const fileEl = ensureHidden('signatureFilename', 'signatureFilename');
+      const pathEl = ensureHidden('signaturePath', 'signaturePath');
+
+      idEl.value = String(json.id || '');
+      fileEl.value = String(json.filename || fileName);
+      pathEl.value = String(json.path || json.relativePath || '');
+
+      // remove clear button
+      const clearBtn = document.getElementById('clearSignature') || document.querySelector('[data-action="clear-signature"]');
+      if (clearBtn && clearBtn.parentNode) clearBtn.parentNode.removeChild(clearBtn);
+
+      // replace canvas with saved png (use returned path if available)
+      const parent = canvas.parentNode;
+      const img = document.createElement('img');
+      img.alt = 'Customer signature';
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      if (json.path) img.src = '/' + json.path.replace(/^\/+/, '');
+      else img.src = signatureDataField.value;
+
+      try { parent.replaceChild(img, canvas); } catch (e) { canvas.style.display = 'none'; parent.appendChild(img); }
+
+      btn.textContent = 'Saved';
+      // keep disabled to prevent duplicate uploads; enable if you want re-save behavior
+    } catch (err) {
+      console.error('Error saving signature:', err);
+      alert('Unexpected error saving signature. See console.');
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  });
+})();
