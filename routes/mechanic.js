@@ -536,18 +536,16 @@ router.post('/mechanic/courtesy-check', (req, res) => {
                                                 return res.status(500).json({ success: false, message: 'Failed to finalize courtesy save' });
                                             }
                                             return res.sendStatus(204);
-                                        });
                                     });
-                                }
-                            });
+                                });
+                            }
                         });
-                    }
-                );
+                    });
+                });
             });
         });
     });
 });
-
 router.post('/mechanic/tires', (req, res) => {
     const db = req.app.locals.db;
     if (!db) return res.status(500).json({ error: 'Database not available' });
@@ -1114,7 +1112,6 @@ router.post('/upload-video', videoUpload.single('video'), (req, res) => {
             });
             return;
         }
-        // success
         res.json({ success: true, id: this.lastID, path: relativePath });
     });
 });
