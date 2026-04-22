@@ -2166,78 +2166,82 @@ document.addEventListener('DOMContentLoaded', () => {
   const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
   console.log('Signature save & ticketId:', ticketId, "canvas", !!signatureCanvas, "btn", !!clearBtn);
 
-  
+  (function checkTicketID() {
+    const uploadZone = document.getElementById('video-upload-zone');
+    const videoFileInput = document.getElementById('video-file');
+    const uploadTrigger = document.getElementById('upload-trigger');
+    const uploadBtn = document.getElementById('upload-btn');
+    if (!uploadZone || !videoFileInput || !uploadBtn) return;
 
-});
+    let selectedFile = null;
 
-// replace the console.log block at bottom with this call or add below it
-async function loadSavedSignatureForTicket(ticketId) {
-  if (!ticketId) return;
-  try {
-    // call the ticket-check endpoint as requested
-    const url = '/mechanic/ticket-check?ticketId=' + encodeURIComponent(ticketId);
-    console.log('loadSavedSignatureForTicket: fetching', url);
-    const res = await fetch(url, { method: 'GET' });
-    if (!res.ok) {
-      console.log('loadSavedSignatureForTicket: fetch failed', res.status);
-      return; // no stored signature or endpoint not found
+    // clicking the choose button opens file picker
+    if (uploadTrigger) {
+      uploadTrigger.addEventListener('click', function (e) {
+        e.preventDefault();
+        videoFileInput.click();
+      });
     }
-    const json = await res.json().catch(() => null);
-    if (!json || !json.success || !json.signature) {
-      console.log('loadSavedSignatureForTicket: no signature in response', json);
-      return;
-    }
-    const sig = json.signature;
 
-    // ensure hidden inputs are present for form submit
-    const form = document.getElementById('repForm') || document.querySelector('form');
-    const ensureHidden = (name, id) => {
-      let el = form && form.querySelector(`input[name="${name}"]`);
-      if (!el) el = document.getElementById(id);
-      if (!el) {
-        el = document.createElement('input');
-        el.type = 'hidden';
-        el.name = name;
-        if (id) el.id = id;
-        form && form.appendChild(el);
+    // clicking the zone also opens picker (mockup behavior)
+    uploadZone.addEventListener('click', function (e) {
+      if (e.target !== uploadTrigger && e.target !== uploadBtn) videoFileInput.click();
+    });
+
+    // when a file is selected
+    videoFileInput.addEventListener('change', function (e) {
+      selectedFile = e.target.files[0];
+      const p = uploadZone.querySelector('p');
+      if (selectedFile) {
+        if (p) p.textContent = `Selected: ${selectedFile.name}`;
+        uploadBtn.disabled = false;
+        uploadBtn.style.opacity = '1';
+      } else {
+        if (p) p.textContent = 'Drop video here or click to upload';
+        uploadBtn.disabled = true;
       }
-      return el;
-    };
-    const idEl = ensureHidden('signatureId', 'signatureId');
-    const fileEl = ensureHidden('signatureFilename', 'signatureFilename');
-    const pathEl = ensureHidden('signaturePath', 'signaturePath');
+    });
 
-    idEl.value = String(sig.id || '');
-    fileEl.value = String(sig.filename || sig.originalName || '');
-    pathEl.value = String(sig.relativePath || sig.path || '');
+    // upload to server
+    uploadBtn.addEventListener('click', function () {
+      if (!selectedFile) {
+        alert('Please select a video file first.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('video', selectedFile);
 
-    // remove clear button and swap canvas for image
-    const container = document.querySelector('.form-grid') || document;
-    const canvas = container.querySelector('#signatureCanvas');
-    const clearBtn = container.querySelector('#clearSignature');
-    if (clearBtn && clearBtn.parentNode) clearBtn.parentNode.removeChild(clearBtn);
+      uploadBtn.textContent = 'Uploading...';
+      uploadBtn.disabled = true;
 
-    const img = document.createElement('img');
-    img.alt = 'Customer signature';
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
-    if (sig.relativePath || sig.path) img.src = '/' + (sig.relativePath || sig.path).replace(/^\/+/, '');
-    else {
-      const sigDataField = container.querySelector('#signatureData, input[name="signatureData"]');
-      if (sigDataField && sigDataField.value) img.src = sigDataField.value;
-    }
-
-    if (canvas && canvas.parentNode) canvas.parentNode.replaceChild(img, canvas);
-  } catch (err) {
-    console.error('loadSavedSignatureForTicket error', err);
-  }
-}
-
-// use your existing ticket-id lookup; simple example:
-document.addEventListener('DOMContentLoaded', () => {
-  const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
-                   document.getElementById('vehicle-ticketId')?.value ||
-                   document.getElementById('ticketId')?.value ||
-                   null;
-  if (ticketId) loadSavedSignatureForTicket(ticketId);
+      fetch('/upload-video', {
+        method: 'POST',
+        body: formData
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.success) {
+            alert('Video uploaded successfully!');
+            const p = uploadZone.querySelector('p');
+            if (p) p.textContent = 'Video uploaded successfully!';
+            uploadZone.style.backgroundColor = '#d4edda';
+            uploadZone.style.borderColor = '#c3e6cb';
+            // clear selection
+            videoFileInput.value = '';
+            selectedFile = null;
+          } else {
+            alert('Upload failed: ' + (data && data.message ? data.message : 'Unknown'));
+          }
+        })
+        .catch(err => {
+          console.error('Upload error:', err);
+          alert('Upload failed. Please try again.');
+        })
+        .finally(() => {
+          uploadBtn.textContent = 'Upload';
+          uploadBtn.disabled = false;
+        });
+    });
+  })();
 });
+
