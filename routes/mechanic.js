@@ -124,6 +124,25 @@ const signatureUpload = multer({
     }
 });
 
+router.get('/mechanic/ticket-check', (req, res) => {
+    const db = req.app && req.app.locals && req.app.locals.db;
+    if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
+
+    const ticketId = req.query.ticketId;
+    if (!ticketId) return res.status(400).json({ success: false, message: 'Missing ticketId' });
+
+    const sql = `SELECT id, ticketID, filename, originalName, relativePath, uploadDate
+               FROM signatures
+               WHERE ticketID = ?
+               ORDER BY id DESC
+               LIMIT 1`;
+    db.get(sql, [ticketId], (err, row) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        if (!row) return res.status(404).json({ success: false, message: 'Signature not found' });
+        return res.json({ success: true, signature: row });
+    });
+});
+
 router.get('/mechanic', (req, res) => {
     const userCookie = req.cookies.user;
     if (!userCookie) return res.redirect('/login');
@@ -170,7 +189,7 @@ router.get('/mechanic', (req, res) => {
                           WHERE ct.ticketID = ?
                           ORDER BY cti.id ASC
                         `;
-                                                const steeringJoinSql = `
+                        const steeringJoinSql = `
                                                     SELECT sst.*, ss.ticketID AS steeringTicketID, ss.comments AS steeringComments
                                                     FROM steeringSuspensionTable sst
                                                     INNER JOIN steeringSuspension ss ON sst.steeringSuspensionID = ss.id
@@ -202,13 +221,13 @@ router.get('/mechanic', (req, res) => {
                                   ORDER BY bt.id ASC
                                 `;
                                 db.all(brakesJoinSql, [ticketId], (bErr, brakesRows) => {
-                                  if (bErr) {
-                                    console.error('Error loading brakes joined rows:', bErr);
-                                  } else if (Array.isArray(brakesRows) && brakesRows.length) {
-                                    ticket.sections = ticket.sections || {};
-                                    ticket.sections.brakesTable = brakesRows;
-                                  }
-                                  return res.render('mechanic', { ticket, editMode: explicitEdit });
+                                    if (bErr) {
+                                        console.error('Error loading brakes joined rows:', bErr);
+                                    } else if (Array.isArray(brakesRows) && brakesRows.length) {
+                                        ticket.sections = ticket.sections || {};
+                                        ticket.sections.brakesTable = brakesRows;
+                                    }
+                                    return res.render('mechanic', { ticket, editMode: explicitEdit });
                                 });
                             });
                         });
@@ -276,25 +295,25 @@ router.get('/mechanic', (req, res) => {
 });
 
 router.post('/mechanic', async (req, res) => {
-     // collect fields
-     const roNum = req.body.roNum;
-     const roDate = req.body.roDate;
-     const technician = req.body.technician;
-     const timeArrive = req.body.timeIn;
-     const timeOut = req.body.timeOut;
-     const totTime = req.body.totTime;
-     const custName = req.body.custName;
-     const custAdd = req.body.custAddress;
-     const custPhone = req.body.custPhone;
-     const custEmail = req.body.custEmail;
-     const concern = req.body.concern;
-     const diagnosis = req.body.diagnosis;
-     const sDate = req.body.sDate;
-     const signature = req.body.signature;
-     const ticketStatus = req.body.ticketStatus || 'open';
+    // collect fields
+    const roNum = req.body.roNum;
+    const roDate = req.body.roDate;
+    const technician = req.body.technician;
+    const timeArrive = req.body.timeIn;
+    const timeOut = req.body.timeOut;
+    const totTime = req.body.totTime;
+    const custName = req.body.custName;
+    const custAdd = req.body.custAddress;
+    const custPhone = req.body.custPhone;
+    const custEmail = req.body.custEmail;
+    const concern = req.body.concern;
+    const diagnosis = req.body.diagnosis;
+    const sDate = req.body.sDate;
+    const signature = req.body.signature;
+    const ticketStatus = req.body.ticketStatus || 'open';
 
-     const db = req.app.locals.db;
-     if (!db) return res.status(500).send('Database not available');
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).send('Database not available');
 
     // try to save signature first (uses req.body.signature dataURL if present)
     let savedSignature = null;
@@ -338,7 +357,7 @@ router.post('/mechanic', async (req, res) => {
                     ticketParams.push(savedSignature ? savedSignature.relativePath : null);
                 }
                 ticketParams.push(ticketStatus);
-                 console.log('Inserting ticket with params:', ticketParams);
+                console.log('Inserting ticket with params:', ticketParams);
 
                 db.run(insertTicketSql, ticketParams, function (err) {
                     if (err) {
@@ -384,8 +403,6 @@ router.post('/mechanic', async (req, res) => {
         });
     });
 });
-
-
 
 router.post('/mechanic/vehicle-info', (req, res) => {
     const db = req.app.locals.db;
@@ -622,7 +639,7 @@ router.post('/mechanic/tires', (req, res) => {
         if (row) {
             // Update existing record
             const updateSql = `UPDATE tires SET size = ?, speedRating = ?, LF = ?, RF = ?, LR = ?, RR = ?, SP = ?, treadDepth32 = ?, rotationDue = ?, balance = ?, alignment = ?, comments = ? WHERE ticketID = ?`;
-            db.run(updateSql, params, function(err) {
+            db.run(updateSql, params, function (err) {
                 if (err) {
                     console.error('Failed to update tires info:', err);
                     return res.status(500).json({ error: 'Failed to update tires info' });
@@ -633,7 +650,7 @@ router.post('/mechanic/tires', (req, res) => {
             // Insert new record
             const insertSql = `INSERT INTO tires (ticketID, size, speedRating, LF, RF, LR, RR, SP, treadDepth32, rotationDue, balance, alignment, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
             const insertParams = [ticketId, ...params.slice(0, -1)];
-            db.run(insertSql, insertParams, function(err) {
+            db.run(insertSql, insertParams, function (err) {
                 if (err) {
                     console.error('Failed to save tires info:', err);
                     return res.status(500).json({ error: 'Failed to save tires info' });
@@ -646,69 +663,69 @@ router.post('/mechanic/tires', (req, res) => {
 
 
 router.post('/mechanic/steering-suspension', (req, res) => {
-  const db = req.app.locals.db;
-  if (!db) return res.status(500).send('Database not available');
+    const db = req.app.locals.db;
+    if (!db) return res.status(500).send('Database not available');
 
-  // normalize body / payload
-  let body = req.body || {};
-  if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch (e) { body = {}; }
-  }
+    // normalize body / payload
+    let body = req.body || {};
+    if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch (e) { body = {}; }
+    }
     // allow JSON payload or form fields
     const ticketId = body.ticketId || body.ticketID || req.query.ticketId || null;
     let items = body.items || null;
     // accept comments from client
     const comments = (typeof body.comments !== 'undefined') ? body.comments : (body.comment || null);
 
-  if (body.payload && !items) {
-    try {
-      const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
-      items = p.items || p.rows || null;
-    } catch (e) { /* ignore */ }
-  }
-
-  // fallback parse sequential form fields item_0,left_0,...
-  if (!Array.isArray(items)) {
-    const parsed = [];
-    for (let i = 0;; i++) {
-      const item = body[`item_${i}`];
-      if (typeof item === 'undefined') break;
-      parsed.push({
-        item: item,
-        left: body[`left_${i}`] || '',
-        right: body[`right_${i}`] || '',
-        front: body[`front_${i}`] || '',
-        rear: body[`rear_${i}`] || ''
-      });
+    if (body.payload && !items) {
+        try {
+            const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
+            items = p.items || p.rows || null;
+        } catch (e) { /* ignore */ }
     }
-    if (parsed.length) items = parsed;
-  }
 
-  if (!ticketId) return res.status(400).send('ticketId required');
-  items = Array.isArray(items) ? items : [];
+    // fallback parse sequential form fields item_0,left_0,...
+    if (!Array.isArray(items)) {
+        const parsed = [];
+        for (let i = 0; ; i++) {
+            const item = body[`item_${i}`];
+            if (typeof item === 'undefined') break;
+            parsed.push({
+                item: item,
+                left: body[`left_${i}`] || '',
+                right: body[`right_${i}`] || '',
+                front: body[`front_${i}`] || '',
+                rear: body[`rear_${i}`] || ''
+            });
+        }
+        if (parsed.length) items = parsed;
+    }
 
-  db.serialize(() => {
-    // find or create parent steeringSuspension row for this ticket
-    db.get('SELECT id FROM steeringSuspension WHERE ticketID = ?', [ticketId], (err, row) => {
-      if (err) {
-        console.error('Find steering parent error:', err);
-        return res.status(500).send('DB error');
-      }
+    if (!ticketId) return res.status(400).send('ticketId required');
+    items = Array.isArray(items) ? items : [];
 
-      const createChildren = (parentId) => {
-        // delete existing children
-        db.run('DELETE FROM steeringSuspensionTable WHERE steeringSuspensionID = ?', [parentId], (delErr) => {
-          if (delErr) console.warn('Failed to delete old steering children:', delErr);
+    db.serialize(() => {
+        // find or create parent steeringSuspension row for this ticket
+        db.get('SELECT id FROM steeringSuspension WHERE ticketID = ?', [ticketId], (err, row) => {
+            if (err) {
+                console.error('Find steering parent error:', err);
+                return res.status(500).send('DB error');
+            }
 
-          const stmt = db.prepare('INSERT INTO steeringSuspensionTable (steeringSuspensionID, item, left, right, front, rear) VALUES (?, ?, ?, ?, ?, ?)');
-          for (const it of items) {
-            const label = (it.item || it.name || '').toString();
-            const left = (it.left || it.L || it.Left || '').toString();
-            const right = (it.right || it.R || it.Right || '').toString();
-            const front = (it.front || it.Front || '').toString();
-            const rear = (it.rear || it.Rear || '').toString();
-            stmt.run([parentId, label, left, right, front, rear]);
-          }
+            const createChildren = (parentId) => {
+                // delete existing children
+                db.run('DELETE FROM steeringSuspensionTable WHERE steeringSuspensionID = ?', [parentId], (delErr) => {
+                    if (delErr) console.warn('Failed to delete old steering children:', delErr);
+
+                    const stmt = db.prepare('INSERT INTO steeringSuspensionTable (steeringSuspensionID, item, left, right, front, rear) VALUES (?, ?, ?, ?, ?, ?)');
+                    for (const it of items) {
+                        const label = (it.item || it.name || '').toString();
+                        const left = (it.left || it.L || it.Left || '').toString();
+                        const right = (it.right || it.R || it.Right || '').toString();
+                        const front = (it.front || it.Front || '').toString();
+                        const rear = (it.rear || it.Rear || '').toString();
+                        stmt.run([parentId, label, left, right, front, rear]);
+                    }
                     stmt.finalize((finalErr) => {
                         if (finalErr) {
                             console.error('Failed insert steering children:', finalErr);
@@ -742,23 +759,23 @@ router.post('/mechanic/steering-suspension', (req, res) => {
                             return res.sendStatus(204);
                         }
                     });
-        });
-      };
+                });
+            };
 
-      if (row && row.id) {
-        createChildren(row.id);
-      } else {
-        // insert parent
-        db.run('INSERT INTO steeringSuspension (ticketID, item) VALUES (?, ?)', [ticketId, 'Steering & Suspension'], function (insErr) {
-          if (insErr) {
-            console.error('Failed create steering parent:', insErr);
-            return res.status(500).send('DB insert error');
-          }
-          createChildren(this.lastID);
+            if (row && row.id) {
+                createChildren(row.id);
+            } else {
+                // insert parent
+                db.run('INSERT INTO steeringSuspension (ticketID, item) VALUES (?, ?)', [ticketId, 'Steering & Suspension'], function (insErr) {
+                    if (insErr) {
+                        console.error('Failed create steering parent:', insErr);
+                        return res.status(500).send('DB insert error');
+                    }
+                    createChildren(this.lastID);
+                });
+            }
         });
-      }
     });
-  });
 });
 
 router.post('/mechanic/brakes', (req, res) => {
@@ -782,7 +799,7 @@ router.post('/mechanic/brakes', (req, res) => {
     if (!Array.isArray(items)) {
         // fallback: parse sequential form fields
         const parsed = [];
-        for (let i = 0;; i++) {
+        for (let i = 0; ; i++) {
             const item = req.body[`item_${i}`];
             if (typeof item === 'undefined') break;
             parsed.push({

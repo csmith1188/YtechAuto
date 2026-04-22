@@ -703,12 +703,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (courtesy) {
           const table = courtesy.querySelector('table');
           if (table) {
-            const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').trim());
+            const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').trim());
             const rows = Array.from(table.querySelectorAll('tbody tr'));
             const courtesyErrors = [];
             rows.forEach((row, rowIdx) => {
               const firstCell = row.querySelector('td');
-              const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx+1}`;
+              const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx + 1}`;
               const selects = Array.from(row.querySelectorAll('select'));
               selects.forEach((sel) => {
                 if (!sel.value || String(sel.value).trim() === '') {
@@ -729,7 +729,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const cellIdx = Array.from(cell.parentElement.children).indexOf(cell);
                     const isLastColumn = cellIdx === (row.children.length - 1);
                     if (isLastColumn) return;
-                    const header = headers[cellIdx] || `Column ${cellIdx+1}`;
+                    const header = headers[cellIdx] || `Column ${cellIdx + 1}`;
                     const val = (inp.value || '').toString().trim();
                     if (!val) courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
                   }
@@ -851,7 +851,7 @@ document.addEventListener('DOMContentLoaded', function () {
               const selects = Array.from(row.querySelectorAll('select'));
               selects.forEach((sel) => {
                 if (!sel.value || String(sel.value).trim() === '') {
-                  errors.push(`Courtesy Check row ${idx+1}: status must be selected.`);
+                  errors.push(`Courtesy Check row ${idx + 1}: status must be selected.`);
                 }
               });
 
@@ -862,7 +862,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputs.forEach((inp, i) => {
                   if (i === inputs.length - 1) return; // skip notes
                   if (!String(inp.value || '').trim()) {
-                    errors.push(`Courtesy Check row ${idx+1}: required field is empty.`);
+                    errors.push(`Courtesy Check row ${idx + 1}: required field is empty.`);
                   }
                 });
               }
@@ -883,7 +883,7 @@ document.addEventListener('DOMContentLoaded', function () {
               // skip file inputs and buttons
               if (el.type === 'file' || el.type === 'button' || el.type === 'submit') return;
               // skip known hidden helpers
-              const skipNames = ['repairs','tags','signature','ticketStatus','subTotParts','subTotLabor','tax','totEstimate','timeIn','timeOut','timeInHour','timeInMinute','timeInAmPm','timeOutHour','timeOutMinute','timeOutAmPm','totTime'];
+              const skipNames = ['repairs', 'tags', 'signature', 'ticketStatus', 'subTotParts', 'subTotLabor', 'tax', 'totEstimate', 'timeIn', 'timeOut', 'timeInHour', 'timeInMinute', 'timeInAmPm', 'timeOutHour', 'timeOutMinute', 'timeOutAmPm', 'totTime'];
               if (el.name && skipNames.includes(el.name)) return;
               if (el.id && skipNames.includes(el.id)) return;
 
@@ -968,7 +968,7 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', validateAndSubmit);
 
   })();
-  
+
   // --- Brake pads/rotors color coding based on thickness ---
   (function initBrakeColorCoding() {
     const brakesSection = document.getElementById('brakes');
@@ -1018,12 +1018,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (courtesy) {
         const table = courtesy.querySelector('table');
         if (table) {
-          const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').trim());
+          const headers = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').trim());
           const rows = Array.from(table.querySelectorAll('tbody tr'));
           const courtesyErrors = [];
           rows.forEach((row, rowIdx) => {
             const firstCell = row.querySelector('td');
-            const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx+1}`;
+            const itemName = (firstCell && firstCell.textContent) ? firstCell.textContent.trim() : `Row ${rowIdx + 1}`;
             const selects = Array.from(row.querySelectorAll('select'));
             selects.forEach((sel) => {
               if (!sel.value || String(sel.value).trim() === '') {
@@ -1044,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', function () {
                   const cellIdx = Array.from(cell.parentElement.children).indexOf(cell);
                   const isLastColumn = cellIdx === (row.children.length - 1);
                   if (isLastColumn) return;
-                  const header = headers[cellIdx] || `Column ${cellIdx+1}`;
+                  const header = headers[cellIdx] || `Column ${cellIdx + 1}`;
                   const val = (inp.value || '').toString().trim();
                   if (!val) courtesyErrors.push(`Courtesy Check — ${itemName}: ${header} is required.`);
                 }
@@ -1112,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', function () {
           var tbody = document.querySelector('#repairs-table tbody');
           if (tbody) {
             tbody.innerHTML = '';
-            ticket.repairs.forEach(function(r){
+            ticket.repairs.forEach(function (r) {
               var tr = document.createElement('tr');
               tr.innerHTML = `
                 <td><input type="text" class="rp-desc" placeholder="Description"></td>
@@ -1126,16 +1126,16 @@ document.addEventListener('DOMContentLoaded', function () {
               `;
               tbody.appendChild(tr);
               // fill values
-              try { tr.querySelector('.rp-desc').value = r.repairDescription || ''; } catch (e) {}
-              try { tr.querySelector('.rp-qty').value = (r.qty != null) ? r.qty : ''; } catch (e) {}
-              try { tr.querySelector('.rp-um').value = r.partNumber || ''; } catch (e) {}
-              try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch (e) {}
-              try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch (e) {}
-              try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch (e) {}
-              try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch (e) {}
+              try { tr.querySelector('.rp-desc').value = r.repairDescription || ''; } catch (e) { }
+              try { tr.querySelector('.rp-qty').value = (r.qty != null) ? r.qty : ''; } catch (e) { }
+              try { tr.querySelector('.rp-um').value = r.partNumber || ''; } catch (e) { }
+              try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch (e) { }
+              try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch (e) { }
+              try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch (e) { }
+              try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch (e) { }
               // wire the row behaviors already present in the page if available
-              try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch(e){}
-              try { if (typeof wireRow === 'function') wireRow(tr); } catch(e){}
+              try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch (e) { }
+              try { if (typeof wireRow === 'function') wireRow(tr); } catch (e) { }
             });
             // update subtotals after populating: attempt to call existing helper, otherwise compute locally
             try {
@@ -1162,17 +1162,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const subLaborEl = document.getElementById('subTotLabor');
                 const taxEl = document.getElementById('tax');
                 const totEstimateEl = document.getElementById('totEstimate');
-                function fmt(n){ return (Math.round(n * 100) / 100).toFixed(2); }
+                function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2); }
                 if (subPartsEl) subPartsEl.value = fmt(partsSum);
                 if (subLaborEl) subLaborEl.value = fmt(laborSum);
                 const tax = partsSum * 0.06;
                 if (taxEl) taxEl.value = fmt(tax);
                 if (totEstimateEl) totEstimateEl.value = fmt(partsSum + tax);
               }
-            } catch(e){}
+            } catch (e) { }
           }
         }
-        
+
         // set time picker select values (if individual selects exist) by parsing the ticket.timeIn/timeOut
         function setTimeSelects(prefix, timeStr) {
           if (!timeStr) return;
@@ -1184,9 +1184,9 @@ document.addEventListener('DOMContentLoaded', function () {
           const hEl = document.getElementById(prefix + 'Hour');
           const mEl = document.getElementById(prefix + 'Minute');
           const pEl = document.getElementById(prefix + 'AmPm');
-          try { if (hEl) { hEl.value = String(parseInt(h,10)); hEl.dispatchEvent(new Event('change')); } } catch(e){}
-          try { if (mEl) { mEl.value = String(m).padStart(2,'0'); mEl.dispatchEvent(new Event('change')); } } catch(e){}
-          try { if (pEl) { pEl.value = period; pEl.dispatchEvent(new Event('change')); } } catch(e){}
+          try { if (hEl) { hEl.value = String(parseInt(h, 10)); hEl.dispatchEvent(new Event('change')); } } catch (e) { }
+          try { if (mEl) { mEl.value = String(m).padStart(2, '0'); mEl.dispatchEvent(new Event('change')); } } catch (e) { }
+          try { if (pEl) { pEl.value = period; pEl.dispatchEvent(new Event('change')); } } catch (e) { }
         }
 
         setTimeSelects('timeIn', ticket.timeIn);
@@ -1212,7 +1212,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const v = row[k] == null ? '' : row[k];
                     // find by name or id (case-insensitive)
                     const el = inputs.find(i => ((i.name && i.name.toLowerCase() === lk) || (i.id && i.id.toLowerCase() === lk)));
-                    if (el) { try { el.value = v; el.dispatchEvent(new Event('change')); } catch (e) {} }
+                    if (el) { try { el.value = v; el.dispatchEvent(new Event('change')); } catch (e) { } }
                   });
                 } catch (e) { console.warn('setFormValuesFromRow error', e); }
               }
@@ -1242,17 +1242,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     <td><button type="button" class="remove-repair-line">Remove</button></td>
                   `;
                   tbody.appendChild(tr);
-                  try { tr.querySelector('.rp-desc').value = r.repairDescription || r.item || ''; } catch(e){}
-                  try { tr.querySelector('.rp-qty').value = r.qty || ''; } catch(e){}
-                  try { tr.querySelector('.rp-um').value = r.partNumber || r.part || ''; } catch(e){}
-                  try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch(e){}
-                  try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch(e){}
-                  try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch(e){}
-                  try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch(e){}
-                  try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch(e){}
-                  try { if (typeof wireRow === 'function') wireRow(tr); } catch(e){}
+                  try { tr.querySelector('.rp-desc').value = r.repairDescription || r.item || ''; } catch (e) { }
+                  try { tr.querySelector('.rp-qty').value = r.qty || ''; } catch (e) { }
+                  try { tr.querySelector('.rp-um').value = r.partNumber || r.part || ''; } catch (e) { }
+                  try { tr.querySelector('.rp-partprice').value = (r.partPrice != null) ? r.partPrice : ''; } catch (e) { }
+                  try { tr.querySelector('.rp-partstotal').value = (r.partsTotal != null) ? r.partsTotal : ''; } catch (e) { }
+                  try { tr.querySelector('.rp-laborhours').value = (r.laborHours != null) ? r.laborHours : ''; } catch (e) { }
+                  try { tr.querySelector('.rp-labortotal').value = (r.laborTotal != null) ? r.laborTotal : ''; } catch (e) { }
+                  try { if (typeof ensureRowClasses === 'function') ensureRowClasses(tr); } catch (e) { }
+                  try { if (typeof wireRow === 'function') wireRow(tr); } catch (e) { }
                 });
-                try { if (typeof updateSubtotals === 'function') updateSubtotals(); } catch(e) {}
+                try { if (typeof updateSubtotals === 'function') updateSubtotals(); } catch (e) { }
                 return;
               }
 
@@ -1358,11 +1358,11 @@ document.addEventListener('DOMContentLoaded', function () {
                   if (!rowDom) return;
                   // set left/right/front/rear if present
                   try {
-                    ['left','right','front','rear'].forEach(col => {
-                      const val = r[col] || r[col.charAt(0).toUpperCase()+col.slice(1)] || '';
+                    ['left', 'right', 'front', 'rear'].forEach(col => {
+                      const val = r[col] || r[col.charAt(0).toUpperCase() + col.slice(1)] || '';
                       if (!val) return;
                       // find corresponding cell by header names
-                      const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h=> (h.textContent||'').toLowerCase());
+                      const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
                       const idx = headerCells.findIndex(h => h.includes(col));
                       if (idx !== -1 && rowDom.cells[idx]) {
                         const cell = rowDom.cells[idx];
@@ -1373,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             // if direct assign didn't match an option (select stays unchanged), try fuzzy-matching options by text/value
                             if (input.tagName && input.tagName.toLowerCase() === 'select') {
                               const cur = input.value;
-                              const norm = s => (s||'').toString().toLowerCase().trim();
+                              const norm = s => (s || '').toString().toLowerCase().trim();
                               if (norm(cur) !== norm(val)) {
                                 const opt = Array.from(input.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
                                 if (opt) input.value = opt.value;
@@ -1386,7 +1386,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         } else {
                           // No input/select in this cell — do not overwrite plain text dashes; try to find a select elsewhere in the row that corresponds to this header
                           try {
-                            const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h=> (h.textContent||'').toLowerCase());
+                            const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
                             // find select in same row whose header includes the column name
                             const sel = Array.from(rowDom.querySelectorAll('select')).find(s => {
                               try {
@@ -1398,13 +1398,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             if (sel) {
                               try {
                                 sel.value = val;
-                                const norm = s => (s||'').toString().toLowerCase().trim();
+                                const norm = s => (s || '').toString().toLowerCase().trim();
                                 if (norm(sel.value) !== norm(val)) {
                                   const opt = Array.from(sel.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
                                   if (opt) sel.value = opt.value;
                                 }
                                 sel.dispatchEvent(new Event('change'));
-                              } catch (e) {}
+                              } catch (e) { }
                             }
                           } catch (e) { /* ignore fallback */ }
                         }
@@ -1423,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const commentsInput = sec.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
                     if (commentsInput) commentsInput.value = parentComments;
                   }
-                } catch (e) {}
+                } catch (e) { }
                 return;
               }
 
@@ -1434,15 +1434,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 // helper to normalize labels
                 const normalize = s => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').trim();
                 // find header indexes
-                const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+                const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
                 const findIdx = (keys) => {
                   const ks = Array.isArray(keys) ? keys : [keys];
                   return headerCells.findIndex(h => ks.some(k => h.includes(k)));
                 };
                 const specIdx = findIdx(['spec']);
-                const actualIdx = findIdx(['actual','value']);
+                const actualIdx = findIdx(['actual', 'value']);
                 const statusIdx = findIdx(['status']);
-                const commentsIdx = findIdx(['comment','notes','note']);
+                const commentsIdx = findIdx(['comment', 'notes', 'note']);
 
                 const unmatched = [];
                 rows.forEach(r => {
@@ -1475,7 +1475,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         input.value = val || '';
                         // if select didn't match, try fuzzy match on options
                         if (input.tagName && input.tagName.toLowerCase() === 'select') {
-                          const norm = s => (s||'').toString().toLowerCase().trim();
+                          const norm = s => (s || '').toString().toLowerCase().trim();
                           if (norm(input.value) !== norm(val)) {
                             const opt = Array.from(input.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
                             if (opt) input.value = opt.value;
@@ -1502,7 +1502,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const commentsInput = sec.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
                     if (commentsInput) commentsInput.value = parentComments;
                   }
-                } catch (e) {}
+                } catch (e) { }
                 return;
               }
 
@@ -1523,7 +1523,7 @@ document.addEventListener('DOMContentLoaded', function () {
                       const notes = r.notes || r.Notes || r.comments || '';
                       const sel = rowDom.querySelector('select'); if (sel && status) { sel.value = status; sel.dispatchEvent(new Event('change')); }
                       const ni = rowDom.querySelector('input[type="text"]'); if (ni && notes) ni.value = notes;
-                    } catch (e) {}
+                    } catch (e) { }
                   });
                 }
                 // emissions (form inputs) may exist under 'emissions' table (separate)
@@ -1532,28 +1532,28 @@ document.addEventListener('DOMContentLoaded', function () {
                   const row = rows[0];
                   if (row) {
                     const mapping = {
-                      OBD: ['obd','obd/emissions','obd_emissions','obd'],
-                      inspections: ['inspections','inspection','inspected'],
-                      emissionsDue: ['emissionsdue','emissions_due','emissionsdue'],
-                      nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextOilChange'],
-                      inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
-                      reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by','reInspectedBy'],
-                      warnings: ['warnings','warnings'],
-                      comments: ['comments','comment']
+                      OBD: ['obd', 'obd/emissions', 'obd_emissions', 'obd'],
+                      inspections: ['inspections', 'inspection', 'inspected'],
+                      emissionsDue: ['emissionsdue', 'emissions_due', 'emissionsdue'],
+                      nextOilChange: ['nextoilchange', 'nextOilChange', 'next_oil_change', 'nextOilChange'],
+                      inspectedBy: ['inspectedby', 'inspectedBy', 'inspected_by'],
+                      reInspectedBy: ['reinspectedby', 'reInspectedBy', 're_inspected_by', 'reInspectedBy'],
+                      warnings: ['warnings', 'warnings'],
+                      comments: ['comments', 'comment']
                     };
                     Object.keys(mapping).forEach(k => {
                       const keys = mapping[k];
                       let val = '';
-                      for (let i=0;i<keys.length;i++) { if (row[keys[i]] != null) { val = row[keys[i]]; break; } }
+                      for (let i = 0; i < keys.length; i++) { if (row[keys[i]] != null) { val = row[keys[i]]; break; } }
                       if (!val && row[k] != null) val = row[k];
                       if (val != null && val !== '') {
                         // find input/select with label matching key
                         const inputs = Array.from(sec.querySelectorAll('input,select,textarea'));
                         const found = inputs.find(inp => {
-                          const id = (inp.id||'').toLowerCase(); const name = (inp.name||'').toLowerCase();
+                          const id = (inp.id || '').toLowerCase(); const name = (inp.name || '').toLowerCase();
                           return id.includes(k.toLowerCase()) || name.includes(k.toLowerCase());
                         });
-                        if (found) { try { found.value = val; found.dispatchEvent(new Event('change')); } catch(e){} }
+                        if (found) { try { found.value = val; found.dispatchEvent(new Event('change')); } catch (e) { } }
                       }
                     });
                   }
@@ -1573,11 +1573,11 @@ document.addEventListener('DOMContentLoaded', function () {
                   list.innerHTML = '';
                   items.forEach((t) => {
                     const chip = document.createElement('div'); chip.className = 'tag-chip'; chip.textContent = t;
-                    const x = document.createElement('button'); x.type='button'; x.className='tag-remove'; x.textContent='×';
+                    const x = document.createElement('button'); x.type = 'button'; x.className = 'tag-remove'; x.textContent = '×';
                     x.addEventListener('click', () => { /* no-op on load */ });
                     chip.appendChild(x); list.appendChild(chip);
                   });
-                } catch (e) {}
+                } catch (e) { }
                 return;
               }
             });
@@ -1607,7 +1607,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 if (!row) return;
                 Object.keys(item).forEach(key => {
-                  if (['item','name','label'].includes(key)) return;
+                  if (['item', 'name', 'label'].includes(key)) return;
                   const val = item[key];
                   const headerIndex = headers.findIndex(h => h.includes(key.toLowerCase()) || key.toLowerCase().includes(h));
                   let cell = null;
@@ -1615,11 +1615,11 @@ document.addEventListener('DOMContentLoaded', function () {
                   if (!cell) {
                     // fallback: find input/select by name or class
                     const el = row.querySelector(`[name="${key}"], .${key}`);
-                    if (el) { try { el.value = val; el.dispatchEvent(new Event('change')); } catch (e) {} }
+                    if (el) { try { el.value = val; el.dispatchEvent(new Event('change')); } catch (e) { } }
                     return;
                   }
                   const input = cell.querySelector('select, input, textarea');
-                  if (input) { try { input.value = val; input.dispatchEvent(new Event('change')); } catch (e) {} }
+                  if (input) { try { input.value = val; input.dispatchEvent(new Event('change')); } catch (e) { } }
                   else { cell.textContent = val; }
                 });
               });
@@ -1677,7 +1677,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if ('disabled' in el) el.disabled = true;
           else el.setAttribute('aria-disabled', 'true');
           // make unfocusable
-          try { el.tabIndex = -1; } catch (e) {}
+          try { el.tabIndex = -1; } catch (e) { }
         } catch (e) { /* ignore individual failures */ }
       });
 
@@ -1698,7 +1698,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
 
       // explicitly disable media upload controls when in view-only mode
-      const uploadControls = ['video-upload-zone','video-file','upload-trigger','upload-btn','image-upload-zone','image-file','image-upload-trigger','image-upload-btn'];
+      const uploadControls = ['video-upload-zone', 'video-file', 'upload-trigger', 'upload-btn', 'image-upload-zone', 'image-file', 'image-upload-trigger', 'image-upload-btn'];
       uploadControls.forEach(id => {
         try {
           const el = document.getElementById(id);
@@ -1827,7 +1827,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const items = [];
         if (table) {
           const rows = Array.from(table.querySelectorAll('tbody tr'));
-          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
           // helper to find column index by header keyword
           const findColIdx = (keywords) => {
             const k = Array.isArray(keywords) ? keywords : [keywords];
@@ -1904,7 +1904,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // --- Brakes: save brakes table rows to /mechanic/brakes ---
 (function wireBrakesSave() {
-  const bind = function() {
+  const bind = function () {
     try {
       const saveBtn = document.querySelector('.section-save[data-section="brakes"]');
       const brakesSection = document.getElementById('brakes');
@@ -1925,15 +1925,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const items = [];
         if (table) {
           const rows = Array.from(table.querySelectorAll('tbody tr'));
-          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent||'').toLowerCase());
+          const headerCells = Array.from(table.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
           const findIdx = (keys) => {
             const ks = Array.isArray(keys) ? keys : [keys];
             return headerCells.findIndex(h => ks.some(k => h.includes(k)));
           };
           const specIdx = findIdx(['spec']);
-          const actualIdx = findIdx(['actual','value']);
+          const actualIdx = findIdx(['actual', 'value']);
           const statusIdx = findIdx(['status']);
-          const commentsIdx = findIdx(['comment','notes','note']);
+          const commentsIdx = findIdx(['comment', 'notes', 'note']);
 
           rows.forEach(row => {
             try {
@@ -1987,8 +1987,8 @@ document.addEventListener('DOMContentLoaded', function () {
   else bind();
 })();
 
- // --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
- (function wireVehicleInfoForm() {
+// --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
+(function wireVehicleInfoForm() {
   try {
     const vForm = document.getElementById('vehicle-info-form');
     if (!vForm) return;
@@ -2100,116 +2100,84 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-(function wireSignatureSaveButton() {
-  function bind() {
-    console.log('wireSignatureSaveButton: bind running');
-    const findTicketId = () => {
-      const el = document.getElementById('ticketId') || document.getElementById('vehicle-ticketId') || document.getElementById('ticketIdHidden');
-      if (el && el.value) return el.value;
-      if (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) return window.__SERVER_TICKET__.id;
-      return null;
-    };
+document.addEventListener('DOMContentLoaded', () => {
+  const signatureCanvas = document.getElementById('signatureCanvas');
+  const clearBtn = document.getElementById('clearSignature');
+  const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
+  console.log('Signature save & ticketId:', ticketId, "canvas", !!signatureCanvas, "btn", !!clearBtn);
 
-    const btn = document.getElementById('saveSignature') ||
-                document.getElementById('saveSignatureBtn') ||
-                document.querySelector('[data-action="save-signature"]');
-    console.log('wireSignatureSaveButton: found button ->', !!btn, btn);
-    if (!btn) return;
+  
 
-    btn.addEventListener('click', async function (ev) {
-      console.log('wireSignatureSaveButton: click handler fired');
-      ev.preventDefault(); ev.stopPropagation();
+});
 
-      const ticketId = findTicketId();
-      if (!ticketId) { alert('Save the ticket first to attach the signature.'); return; }
+// replace the console.log block at bottom with this call or add below it
+async function loadSavedSignatureForTicket(ticketId) {
+  if (!ticketId) return;
+  try {
+    // call the ticket-check endpoint as requested
+    const url = '/mechanic/ticket-check?ticketId=' + encodeURIComponent(ticketId);
+    console.log('loadSavedSignatureForTicket: fetching', url);
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      console.log('loadSavedSignatureForTicket: fetch failed', res.status);
+      return; // no stored signature or endpoint not found
+    }
+    const json = await res.json().catch(() => null);
+    if (!json || !json.success || !json.signature) {
+      console.log('loadSavedSignatureForTicket: no signature in response', json);
+      return;
+    }
+    const sig = json.signature;
 
-      const canvas = document.getElementById('signatureCanvas');
-      const signatureDataField = document.getElementById('signatureData');
-      if (!canvas || !signatureDataField || !signatureDataField.value) { alert('No signature to save.'); return; }
-
-      btn.disabled = true;
-      const oldText = btn.textContent;
-      btn.textContent = 'Saving...';
-
-      try {
-        // create blob from canvas
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        console.log('signature blob:', blob);
-        if (!blob) throw new Error('Failed to create image blob');
-
-        const fd = new FormData();
-        const clientFileNameEl = document.getElementById('signatureFilename') || document.querySelector('input[name="signatureFilename"]');
-        const fileName = (clientFileNameEl && clientFileNameEl.value) ? clientFileNameEl.value : 'signature.png';
-        fd.append('signature', blob, fileName);
-        fd.append('ticketID', String(ticketId));
-
-        // debug: list FormData entries
-        for (const pair of fd.entries()) console.log('FormData entry:', pair[0], pair[1]);
-
-        const resp = await fetch('/upload-signature', { method: 'POST', body: fd });
-        console.log('/upload-signature status', resp.status);
-        const text = await resp.text();
-        // try parse JSON if possible
-        let json = null;
-        try { json = JSON.parse(text); } catch (e) { json = null; }
-        console.log('/upload-signature response parsed:', json, 'raw:', text);
-
-        if (!resp.ok || !json || !json.success) {
-          console.error('Signature upload failed', resp.status, json || text);
-          alert('Failed to save signature on server. See console for details.');
-          btn.disabled = false;
-          btn.textContent = oldText;
-          return;
-        }
-
-        // ensure hidden inputs on the form
-        const form = document.getElementById('repForm') || document.querySelector('form');
-        const ensureHidden = (name, id) => {
-          let el = document.querySelector(`input[name="${name}"]`) || document.getElementById(id);
-          if (!el) {
-            el = document.createElement('input');
-            el.type = 'hidden';
-            el.name = name;
-            if (id) el.id = id;
-            form && form.appendChild(el);
-          }
-          return el;
-        };
-
-        const idEl = ensureHidden('signatureId', 'signatureId');
-        const fileEl = ensureHidden('signatureFilename', 'signatureFilename');
-        const pathEl = ensureHidden('signaturePath', 'signaturePath');
-
-        idEl.value = String(json.id || '');
-        fileEl.value = String(json.filename || fileName);
-        pathEl.value = String(json.path || json.relativePath || '');
-
-        // remove clear button
-        const clearBtn = document.getElementById('clearSignature') || document.querySelector('[data-action="clear-signature"]');
-        if (clearBtn && clearBtn.parentNode) clearBtn.parentNode.removeChild(clearBtn);
-
-        // replace canvas with saved png (use returned path if available)
-        const parent = canvas.parentNode;
-        const img = document.createElement('img');
-        img.alt = 'Customer signature';
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-        if (json.path) img.src = '/' + json.path.replace(/^\/+/, '');
-        else img.src = signatureDataField.value;
-
-        try { parent.replaceChild(img, canvas); } catch (e) { canvas.style.display = 'none'; parent.appendChild(img); }
-
-        btn.textContent = 'Saved';
-        // keep disabled to prevent duplicate uploads; enable if you want re-save behavior
-      } catch (err) {
-        console.error('Error saving signature:', err);
-        alert('Unexpected error saving signature. See console.');
-        btn.disabled = false;
-        btn.textContent = oldText;
+    // ensure hidden inputs are present for form submit
+    const form = document.getElementById('repForm') || document.querySelector('form');
+    const ensureHidden = (name, id) => {
+      let el = form && form.querySelector(`input[name="${name}"]`);
+      if (!el) el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement('input');
+        el.type = 'hidden';
+        el.name = name;
+        if (id) el.id = id;
+        form && form.appendChild(el);
       }
-    });
-  }
+      return el;
+    };
+    const idEl = ensureHidden('signatureId', 'signatureId');
+    const fileEl = ensureHidden('signatureFilename', 'signatureFilename');
+    const pathEl = ensureHidden('signaturePath', 'signaturePath');
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})();
+    idEl.value = String(sig.id || '');
+    fileEl.value = String(sig.filename || sig.originalName || '');
+    pathEl.value = String(sig.relativePath || sig.path || '');
+
+    // remove clear button and swap canvas for image
+    const container = document.querySelector('.form-grid') || document;
+    const canvas = container.querySelector('#signatureCanvas');
+    const clearBtn = container.querySelector('#clearSignature');
+    if (clearBtn && clearBtn.parentNode) clearBtn.parentNode.removeChild(clearBtn);
+
+    const img = document.createElement('img');
+    img.alt = 'Customer signature';
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    if (sig.relativePath || sig.path) img.src = '/' + (sig.relativePath || sig.path).replace(/^\/+/, '');
+    else {
+      const sigDataField = container.querySelector('#signatureData, input[name="signatureData"]');
+      if (sigDataField && sigDataField.value) img.src = sigDataField.value;
+    }
+
+    if (canvas && canvas.parentNode) canvas.parentNode.replaceChild(img, canvas);
+  } catch (err) {
+    console.error('loadSavedSignatureForTicket error', err);
+  }
+}
+
+// use your existing ticket-id lookup; simple example:
+document.addEventListener('DOMContentLoaded', () => {
+  const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
+                   document.getElementById('vehicle-ticketId')?.value ||
+                   document.getElementById('ticketId')?.value ||
+                   null;
+  if (ticketId) loadSavedSignatureForTicket(ticketId);
+});
