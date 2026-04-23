@@ -124,25 +124,6 @@ const signatureUpload = multer({
     }
 });
 
-router.get('/mechanic/ticket-check', (req, res) => {
-    const db = req.app && req.app.locals && req.app.locals.db;
-    if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
-
-    const ticketId = req.query.ticketId;
-    if (!ticketId) return res.status(400).json({ success: false, message: 'Missing ticketId' });
-
-    const sql = `SELECT id, ticketID, filename, originalName, relativePath, uploadDate
-               FROM signatures
-               WHERE ticketID = ?
-               ORDER BY id DESC
-               LIMIT 1`;
-    db.get(sql, [ticketId], (err, row) => {
-        if (err) return res.status(500).json({ success: false, error: err.message });
-        if (!row) return res.status(404).json({ success: false, message: 'Signature not found' });
-        return res.json({ success: true, signature: row });
-    });
-});
-
 router.get('/mechanic', (req, res) => {
     const userCookie = req.cookies.user;
     if (!userCookie) return res.redirect('/login');
@@ -1018,6 +999,25 @@ router.post('/upload-signature', signatureUpload.single('signature'), (req, res)
         }
         // success
         res.json({ success: true, id: this.lastID, path: relativePath });
+    });
+});
+
+router.post('/ticket-check', (req, res) => {
+    const db = req.app && req.app.locals && req.app.locals.db;
+    if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
+
+    const ticketId = req.body.ticketId;
+    if (!ticketId) return res.status(400).json({ success: false, message: 'Missing ticketId' });
+
+    const sql = `SELECT id, ticketID, filename, originalName, relativePath, uploadDate
+               FROM signatures
+               WHERE ticketID = ?
+               ORDER BY id DESC
+               LIMIT 1`;
+    db.get(sql, [ticketId], (err, row) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        if (!row) return res.status(404).json({ success: false, message: 'Signature not found' });
+        return res.json({ success: true, signature: row });
     });
 });
 
