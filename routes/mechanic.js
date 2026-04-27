@@ -146,7 +146,15 @@ router.get('/mechanic', (req, res) => {
         }
         if (!ticket) return res.status(404).send('Ticket not found');
 
-        db.all('SELECT * FROM recRepairs WHERE ticketId = ?', [ticketId], (err2, repairs) => {
+        // also load any signature files associated with this ticket
+        db.all('SELECT * FROM signatures WHERE ticketID = ?', [ticketId], (sigErr, sigRows) => {
+            if (sigErr) {
+                console.error('Error fetching signatures for ticket:', sigErr);
+                sigRows = [];
+            }
+            ticket.signatures = sigRows || [];
+
+            db.all('SELECT * FROM recRepairs WHERE ticketId = ?', [ticketId], (err2, repairs) => {
             if (err2) {
                 console.error('Error fetching repairs:', err2);
                 repairs = [];
@@ -311,6 +319,8 @@ router.get('/mechanic', (req, res) => {
         });
     });
 });
+});
+
 
 router.post('/mechanic', async (req, res) => {
     // collect fields
@@ -1359,6 +1369,26 @@ router.post('/upload-signature', signatureUpload.single('signature'), (req, res)
 });
 
 router.post('/ticket-check', (req, res) => {
+    const db = req.app && req.app.locals && req.app.locals.db;
+    if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
+
+    const ticketId = req.body.ticketId;
+    if (!ticketId) return res.status(400).json({ success: false, message: 'Missing ticketId' });
+
+    const sql = `SELECT id, ticketID, filename, originalName, relativePath, uploadDate
+               FROM signatures
+               WHERE ticketID = ?
+               ORDER BY id DESC
+               LIMIT 1`;
+    db.get(sql, [ticketId], (err, row) => {
+        if (err) return res.status(500).json({ success: false, error: err.message });
+        if (!row) return res.status(404).json({ success: false, message: 'Signature not found' });
+        return res.json({ success: true, signature: row });
+    });
+});
+
+// Backwards-compatible route: previously client expected `/mechanic/ticket-check`
+router.post('/mechanic/ticket-check', (req, res) => {
     const db = req.app && req.app.locals && req.app.locals.db;
     if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
 
