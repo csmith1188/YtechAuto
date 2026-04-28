@@ -2177,7 +2177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Load saved signature for ticket (if present) ---
   function loadSavedSignatureForTicket(ticketId) {
     if (!ticketId) return;
-    const endpoint = '/mechanic/ticket-check';
+    const endpoint = '/ticket-check';
     console.log('loadSavedSignatureForTicket: POST', endpoint, { ticketId });
 
     fetch(endpoint, {

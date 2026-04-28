@@ -1358,7 +1358,7 @@ router.post('/upload-signature', signatureUpload.single('signature'), (req, res)
     });
 });
 
-router.post('/ticket-check', (req, res) => {
+router.post('/ticket-check', (req, res) => {     
     const db = req.app && req.app.locals && req.app.locals.db;
     if (!db) return res.status(500).json({ success: false, message: 'Database not available' });
 
