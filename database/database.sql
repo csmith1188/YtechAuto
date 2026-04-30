@@ -1,6 +1,7 @@
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE
+    email TEXT NOT NULL UNIQUE,
+    stat text
 );
  
 CREATE TABLE tickets (
@@ -9,7 +10,7 @@ CREATE TABLE tickets (
     date TEXT NOT NULL,
     techName TEXT NOT NULL,
     timeIn TEXT NOT NULL,
-    timeOut TEXT,
+    timeOut TEXT,yo
     totalTime TEXT NOT NULL,
     customerName TEXT NOT NULL,
     customerAddress TEXT NOT NULL,
