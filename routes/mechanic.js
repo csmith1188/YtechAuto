@@ -1358,6 +1358,7 @@ router.post('/upload-signature', signatureUpload.single('signature'), (req, res)
     const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
     // accept several common field names from the client (ticketID, ticketId, id)
     const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
+    console.log('Parsed ticketIdValue for signature upload:', ticketID);
     const insertSql = `INSERT INTO signatures (ticketID, filename, originalName, relativePath, uploadDate)
                      VALUES (?, ?, ?, ?, datetime('now'))`;
     const params = [ticketIdValue, file.filename, file.originalname, relativePath];

@@ -690,7 +690,7 @@ document.addEventListener('DOMContentLoaded', function () {
     ctx.lineJoin = 'round';
 
     canvas.addEventListener('pointerdown', function (e) {
-      canvas.setPointerCapture(e.pointerId);
+      canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
       isDrawing = true;
       const rect = canvas.getBoundingClientRect();
       lastX = e.clientX - rect.left;
@@ -720,14 +720,44 @@ document.addEventListener('DOMContentLoaded', function () {
     // helper: convert dataURL to Blob
     function dataURLToBlob(dataURL) {
       const parts = dataURL.split(',');
-      const meta = parts[0];
-      const base64 = parts[1];
+      const meta = parts[0] || '';
+      const base64 = parts[1] || '';
       const mime = (meta.match(/:(.*?);/) || [])[1] || 'image/png';
-      const binary = atob(base64);
+      const binary = atob(base64 || '');
       const len = binary.length;
       const u8 = new Uint8Array(len);
       for (let i = 0; i < len; i++) u8[i] = binary.charCodeAt(i);
       return new Blob([u8], { type: mime });
+    }
+
+    // robust ticket id lookup
+    function findTicketId() {
+      try {
+        if (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) return String(window.__SERVER_TICKET__.id);
+      } catch (e) { }
+      const tryIds = ['vehicle-ticketId', 'ticketId', 'ticketID', 'ticketIdHidden', 'vehicle_ticketId'];
+      for (const id of tryIds) {
+        const el = document.getElementById(id);
+        if (el && el.value) return String(el.value);
+      }
+      // search inputs/selects for first non-empty value with 'ticket' in name/id
+      const els = Array.from(document.querySelectorAll('input,select,textarea'));
+      for (const el of els) {
+        const name = (el.name || '').toLowerCase();
+        const id = (el.id || '').toLowerCase();
+        if ((name && name.includes('ticket')) || (id && id.includes('ticket'))) {
+          if (el.value) return String(el.value);
+        }
+      }
+      // body data attribute
+      if (document.body && document.body.dataset && document.body.dataset.ticketId) return String(document.body.dataset.ticketId);
+      // url params fallback
+      try {
+        const p = new URLSearchParams(window.location.search);
+        const v = p.get('id') || p.get('ticketId') || p.get('ticketID');
+        if (v) return String(v);
+      } catch (e) { }
+      return '';
     }
 
     // upload function used by the clear button handler
@@ -742,28 +772,31 @@ document.addEventListener('DOMContentLoaded', function () {
         const fd = new FormData();
         fd.append('signature', blob, 'signature.png');
 
-        // include ticket id if available
-        let ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
-          document.getElementById('vehicle-ticketId')?.value ||
-          document.getElementById('ticketId')?.value || null;
-        if (!ticketId) {
-          try {
-            const p = new URLSearchParams(window.location.search);
-            ticketId = p.get('id') || p.get('ticketId') || p.get('ticketID') || null;
-          } catch (e) { ticketId = null; }
-        }
+        // find ticket id robustly and append under multiple keys for server compatibility
+        const ticketId = findTicketId();
         if (ticketId) {
           fd.append('ticketID', ticketId);
           fd.append('ticketId', ticketId);
           fd.append('id', ticketId);
+          fd.append('ticket', ticketId);
+        } else {
+          // still append empty ticket fields so server logs show what was sent
+          fd.append('ticketId', '');
         }
 
+        const endpoint = '/upload-signature';
+        console.log('uploadSignatureAndApply: POST', endpoint, 'ticketId=', ticketId || '(none)');
         if (clearBtn) { clearBtn.dataset._origText = clearBtn.textContent; clearBtn.textContent = 'Uploading...'; clearBtn.disabled = true; }
 
-        const endpoint = '/upload-signature';
-        console.log('uploadSignatureAndApply: POST', endpoint, 'ticketId=', ticketId);
-        const res = await fetch(endpoint, { method: 'POST', body: fd });
         const json = await (res.ok ? res.json().catch(() => null) : Promise.resolve(null));
+        try {
+          const res = await fetch('/', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+          if (res.status === 204) { console.log('Emissions saved (204)'); return; }
+          if (res.ok) { let p = null; try { p = await res.json(); } catch (e) { } if (p && p.success) { console.log('Emissions saved'); return; } console.warn('Emissions save unexpected ok response', res.status, p); return; }
+          let err = null; try { err = await res.json(); } catch (e) { err = null; } console.error('Emissions save failed', res.status, err);
+        } catch (err) { console.error('Emissions save failed', err); }
 
         if (!res.ok || !(json && json.success)) {
           console.error('Signature upload failed', res.status, json);
@@ -794,6 +827,14 @@ document.addEventListener('DOMContentLoaded', function () {
         idEl.value = String(sig.id || sig.signatureId || '');
         fileEl.value = String(sig.filename || sig.originalName || '');
         pathEl.value = String(sig.relativePath || sig.path || '');
+
+        // also ensure ticket id hidden exists so subsequent saves include it
+        if (ticketId) {
+          const t1 = ensureHidden('ticketId', 'ticketId');
+          const t2 = ensureHidden('ticketID', 'ticketID');
+          const t3 = ensureHidden('vehicle-ticketId', 'vehicle-ticketId');
+          try { t1.value = ticketId; t2.value = ticketId; t3.value = ticketId; } catch (e) { }
+        }
 
         // remove clear button and swap canvas for image preview
         const container = document.querySelector('.form-grid') || document;
@@ -885,7 +926,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!el) {
               el = document.createElement('input');
               el.type = 'hidden';
-              el.name = 'signature';
+              el.name = name;
               if (id) el.id = id;
               form && form.appendChild(el);
             }
@@ -2358,7 +2399,14 @@ document.addEventListener('DOMContentLoaded', function () {
           const fullGroups = Array.from(emissionsSection.querySelectorAll('.form-group.full-width'));
           for (const g of fullGroups) {
             const lbl = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
-            if (lbl.includes('comment')) { parentCommentsInput = g.querySelector('input[type="text"], textarea'); break; }
+            if (!lbl) continue;
+            const matched = aliases.some(a => lbl.includes(a.toLowerCase()) || a.toLowerCase().includes(lbl));
+            if (matched) {
+              const inp = g.querySelector('input,select,textarea');
+              if (inp && (parent[k] != null && parent[k] !== '')) {
+                try { inp.value = parent[k]; inp.dispatchEvent(new Event('change')); } catch (e) { }
+              }
+            }
           }
         } catch (e) { }
         if (!parentCommentsInput) parentCommentsInput = emissionsSection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
