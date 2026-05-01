@@ -205,10 +205,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       const formData = new FormData();
       formData.append('video', selectedFile);
-       // include ticket id if available (server may expect ticketID / ticketId / id)
+      // include ticket id if available (server may expect ticketID / ticketId / id)
       let ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
-                     document.getElementById('vehicle-ticketId')?.value ||
-                     document.getElementById('ticketId')?.value || null;
+        document.getElementById('vehicle-ticketId')?.value ||
+        document.getElementById('ticketId')?.value || null;
       if (!ticketId) {
         try {
           const p = new URLSearchParams(window.location.search);
@@ -355,8 +355,8 @@ document.addEventListener('DOMContentLoaded', function () {
       selectedFiles.forEach(f => fd.append('image', f));
       // include ticket id if available (server may expect ticketID / ticketId / id)
       let ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
-                     document.getElementById('vehicle-ticketId')?.value ||
-                     document.getElementById('ticketId')?.value || null;
+        document.getElementById('vehicle-ticketId')?.value ||
+        document.getElementById('ticketId')?.value || null;
       if (!ticketId) {
         try {
           const p = new URLSearchParams(window.location.search);
@@ -527,7 +527,7 @@ document.addEventListener('DOMContentLoaded', function () {
             let v = Number(el.value) || 0;
             if (v < 0) v = 0;
             el.value = (Math.round(v * 100) / 100).toFixed(2);
-            try { row.dataset.forceCalc = '1'; } catch(e){}
+            try { row.dataset.forceCalc = '1'; } catch (e) { }
             calcRow(row);
           });
         }
@@ -685,11 +685,12 @@ document.addEventListener('DOMContentLoaded', function () {
     tryInit();
   })();
 
-  // --- Signature canvas setup ---
+  // --- Signature draw and clear ---
   (function setupSignature() {
     const canvas = document.getElementById('signatureCanvas');
     const signatureData = document.getElementById('signatureData');
     const clearBtn = document.getElementById('clearSignature');
+    const saveBtn = document.getElementById('firstSub');
     if (!canvas || !signatureData) return;
 
     const ctx = canvas.getContext('2d');
@@ -701,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function () {
     ctx.lineJoin = 'round';
 
     canvas.addEventListener('pointerdown', function (e) {
-      canvas.setPointerCapture(e.pointerId);
+      canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
       isDrawing = true;
       const rect = canvas.getBoundingClientRect();
       lastX = e.clientX - rect.left;
@@ -728,22 +729,178 @@ document.addEventListener('DOMContentLoaded', function () {
     canvas.addEventListener('pointercancel', endDraw);
     canvas.addEventListener('pointerout', endDraw);
 
-    if (clearBtn) {
-      clearBtn.addEventListener('click', function () {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        signatureData.value = '';
-      });
+    // helper: convert dataURL to Blob
+    function dataURLToBlob(dataURL) {
+      const parts = dataURL.split(',');
+      const meta = parts[0] || '';
+      const base64 = parts[1] || '';
+      const mime = (meta.match(/:(.*?);/) || [])[1] || 'image/png';
+      const binary = atob(base64 || '');
+      const len = binary.length;
+      const u8 = new Uint8Array(len);
+      for (let i = 0; i < len; i++) u8[i] = binary.charCodeAt(i);
+      return new Blob([u8], { type: mime });
     }
+
+    // upload function used by the clear button handler
+    async function uploadSignatureAndApply() {
+      console.log('does signature even WORK?', !!signatureData.value);
+      try {
+        // include ticket id if available (server may expect ticketID / ticketId / id)
+        let ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
+          document.getElementById('vehicle-ticketId')?.value ||
+          document.getElementById('ticketId')?.value || null;
+        if (!ticketId) {
+          try {
+            const p = new URLSearchParams(window.location.search);
+            ticketId = p.get('id') || p.get('ticketId') || p.get('ticketID') || null;
+          } catch (e) { ticketId = null; }
+        }
+
+        const endpoint = '/upload-signature';
+        console.log('uploadSignatureAndApply: POST', 'ticketId=', ticketId);
+
+        fetch(endpoint, {
+          method: 'POST',
+        }).then(async res => {
+          if (res.status === 204) { console.log('signature saved (204)'); return; }
+          if (res.ok) { let p = null; try { p = await res.json(); } catch (e) { } if (p && p.success) { console.log('signature saved'); return; } console.warn('signature save unexpected ok response', res.status, p); return; }
+          let err = null; try { err = await res.json(); } catch (e) { err = null; } console.error('signature save failed', res.status, err);
+        }).catch(err => { console.error('POST failed', err); });
+
+
+        // remove clear button and swap canvas for image preview later
+
+
+        return true;
+      } catch (err) {
+        console.error('Signature upload error', err);
+        alert('Signature upload failed. See console for details.');
+        return false;
+      } finally {
+        if (clearBtn) { clearBtn.textContent = clearBtn.dataset._origText || 'Clear'; clearBtn.disabled = false; }
+      }
+    }
+
+    saveBtn.addEventListener('click', async function (e) {
+      e.preventDefault();
+
+      // if a server-saved signature already exists for this ticket, remove the clear button (view-only)
+      const existingSigId = document.getElementById('signatureId') || document.querySelector('input[name="signatureId"]');
+      if (existingSigId && existingSigId.value) {
+        if (clearBtn.parentNode) clearBtn.parentNode.removeChild(clearBtn);
+        return;
+      }
+
+      // If there's a drawn signature, upload it and apply on success
+      if (signatureData.value) {
+        const ok = await uploadSignatureAndApply();
+        if (ok) return;
+        // on failure, fall through to clearing the canvas so user can retry
+      }
+
+      // default clear behavior: just clear the canvas and signatureData
+      try { ctx.clearRect(0, 0, canvas.width, canvas.height); } catch (e) { }
+      signatureData.value = '';
+    });
+
   })();
 
-  // helper: create a local filename/path for the signature PNG (no upload)
-  function createSignatureFileInfo() {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const filename = 'signature-' + unique + '.png';
-    // server-side storage path expected (adjust if your server uses a different folder)
-    const relativePath = 'upload/signatures/' + filename;
-    return { filename, relativePath };
-  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const signatureCanvas = document.getElementById('signatureCanvas');
+    const clearBtn = document.getElementById('clearSignature');
+    const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
+    console.log('Signature save & ticketId:', ticketId, "canvas", !!signatureCanvas, "btn", !!clearBtn);
+
+    // --- Load saved signature for ticket (if present) ---
+    function loadSavedSignatureForTicket(ticketId) {
+      if (!ticketId) return;
+      const endpoint = '/ticket-check';
+      console.log('loadSavedSignatureForTicket: POST', endpoint, { ticketId });
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId: String(ticketId) })
+      })
+        .then(res => {
+          if (!res.ok) {
+            console.log('loadSavedSignatureForTicket: fetch failed', res.status);
+            return null;
+          }
+          return res.json().catch(() => null);
+        })
+        .then(json => {
+          if (!json) return;
+          if (!json.success || !json.signature) {
+            console.log('loadSavedSignatureForTicket: no signature in response', json);
+            return;
+          }
+          const sig = json.signature;
+
+          // ensure hidden inputs are present for form submit
+          const form = document.getElementById('repForm') || document.querySelector('form');
+          const ensureHidden = (name, id) => {
+            let el = form && form.querySelector(`input[name="${name}"]`);
+            if (!el) el = document.getElementById(id);
+            if (!el) {
+              el = document.createElement('input');
+              el.type = 'hidden';
+              el.name = name;
+              if (id) el.id = id;
+              form && form.appendChild(el);
+            }
+            return el;
+          };
+          const idEl = ensureHidden('signatureId', 'signatureId');
+          const fileEl = ensureHidden('signatureFilename', 'signatureFilename');
+          const pathEl = ensureHidden('signaturePath', 'signaturePath');
+
+          idEl.value = String(sig.id || '');
+          fileEl.value = String(sig.filename || sig.originalName || '');
+          pathEl.value = String(sig.relativePath || sig.path || '');
+
+          // remove clear button and swap canvas for image
+          const container = document.querySelector('.form-grid') || document;
+          const canvas = container.querySelector('#signatureCanvas');
+          const clearBtn = container.querySelector('#clearSignature');
+          if (clearBtn && clearBtn.parentNode) clearBtn.parentNode.removeChild(clearBtn);
+
+          const img = document.createElement('img');
+          img.alt = 'Customer signature';
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          if (sig.relativePath || sig.path) img.src = '/' + (sig.relativePath || sig.path).replace(/^\/+/, '');
+          else {
+            const sigDataField = container.querySelector('#signatureData, input[name="signatureData"]');
+            if (sigDataField && sigDataField.value) img.src = sigDataField.value;
+          }
+
+          if (canvas && canvas.parentNode) canvas.parentNode.replaceChild(img, canvas);
+          console.log('loadSavedSignatureForTicket: signature applied for ticket', ticketId);
+        })
+        .catch(err => {
+          console.error('loadSavedSignatureForTicket fetch error', err);
+        });
+    }
+
+    // Minimal, reliable ticket-id check that calls loadSavedSignatureForTicket once an id is available.
+    const tryLoad = () => {
+      const id =
+        (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
+        document.getElementById('vehicle-ticketId')?.value ||
+        document.getElementById('ticketId')?.value ||
+        document.getElementById('ticketIdHidden')?.value ||
+        '';
+      if (id) {
+        // call the existing loader (no-op if already applied)
+        try { loadSavedSignatureForTicket(String(id)); } catch (e) { console.error('loadSavedSignatureForTicket error', e); }
+        return true;
+      }
+      return false;
+    };
+
+  });
 
   // --- Form validation & submit handling (main) ---
   (function initValidation() {
@@ -757,7 +914,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function validateAndSubmit(e) {
       e.preventDefault();
-      try { console.log('validateAndSubmit invoked'); } catch(e) {}
+      try { console.log('validateAndSubmit invoked'); } catch (e) { }
       const errors = [];
 
       // collect elements used earlier in your validation
@@ -776,7 +933,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // if the user clicked Complete Ticket, we should validate the Digital Courtesy Check first
       const ticketStatusElTop = document.getElementById('ticketStatus');
       const tryingToCompleteTop = ticketStatusElTop && ticketStatusElTop.value === 'complete';
-      try { console.log('validateAndSubmit: ticketStatus=', ticketStatusElTop ? ticketStatusElTop.value : '(none)'); } catch(e) {}
+      try { console.log('validateAndSubmit: ticketStatus=', ticketStatusElTop ? ticketStatusElTop.value : '(none)'); } catch (e) { }
       if (tryingToCompleteTop) {
         const courtesy = document.getElementById('courtesy-check');
         if (courtesy) {
@@ -884,38 +1041,6 @@ document.addEventListener('DOMContentLoaded', function () {
       if (errors.length > 0) {
         showErrors(errors);
         return false;
-      }
-
-      // upload signature (so server stores PNG) then submit
-      if (signatureData && signatureData.value) {
-        try {
-          // put the dataURL into a hidden input named "signature" so router.post('/mechanic') can save it
-          let sigEl = document.querySelector('input[name="signature"]') || document.getElementById('signature');
-          if (!sigEl) {
-            sigEl = document.createElement('input');
-            sigEl.type = 'hidden';
-            sigEl.name = 'signature';
-            sigEl.id = 'signature';
-            form.appendChild(sigEl);
-          }
-          sigEl.value = signatureData.value;
-
-          // optionally include client filename (server will sanitize/use or ignore)
-          let sigFileEl = document.querySelector('input[name="signatureFilename"]') || document.getElementById('signatureFilename');
-          if (!sigFileEl) {
-            sigFileEl = document.createElement('input');
-            sigFileEl.type = 'hidden';
-            sigFileEl.name = 'signatureFilename';
-            sigFileEl.id = 'signatureFilename';
-            form.appendChild(sigFileEl);
-          }
-          if (!sigFileEl.value) sigFileEl.value = (createSignatureFileInfo && createSignatureFileInfo().filename) || 'signature.png';
-
-        } catch (err) {
-          console.error('Signature upload failed:', err);
-          showErrors(['Failed to upload signature. Please try again.']);
-          return false;
-        }
       }
 
       // If completing the ticket, enforce full Digital Courtesy Check validation
@@ -1145,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // mark the form to indicate we're completing and let the form submit handler perform validation
       const status = document.getElementById('ticketStatus');
       if (status) status.value = 'complete';
-      try { console.log('Complete button: submitting form via requestSubmit'); } catch(e) {}
+      try { console.log('Complete button: submitting form via requestSubmit'); } catch (e) { }
       try { form.requestSubmit(); } catch (e) { form.submit(); }
     });
   })();
@@ -1686,12 +1811,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     // populate middle form-grid fields by matching labels
                     const groups = Array.from(sec.querySelectorAll('.form-grid .form-group'));
                     const mapKeys = {
-                      OBD: ['obd','obd/emissions','obd_emissions','obd'],
-                      inspections: ['inspections','inspection','inspected'],
-                      emissionsDue: ['emissionsdue','emissions_due','emissionsdue','emissiondue','emission_due','emission due'],
-                      nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextoilchange','next oil change','next oil','nextoil'],
-                      inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
-                      reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by']
+                      OBD: ['obd', 'obd/emissions', 'obd_emissions', 'obd'],
+                      inspections: ['inspections', 'inspection', 'inspected'],
+                      emissionsDue: ['emissionsdue', 'emissions_due', 'emissionsdue', 'emissiondue', 'emission_due', 'emission due'],
+                      nextOilChange: ['nextoilchange', 'nextOilChange', 'next_oil_change', 'nextoilchange', 'next oil change', 'next oil', 'nextoil'],
+                      inspectedBy: ['inspectedby', 'inspectedBy', 'inspected_by'],
+                      reInspectedBy: ['reinspectedby', 'reInspectedBy', 're_inspected_by']
                     };
                     Object.keys(mapKeys).forEach(k => {
                       const aliases = mapKeys[k];
@@ -1702,7 +1827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (matched) {
                           const inp = g.querySelector('input,select,textarea');
                           if (inp && (parent[k] != null && parent[k] !== '')) {
-                            try { inp.value = parent[k]; inp.dispatchEvent(new Event('change')); } catch(e) {}
+                            try { inp.value = parent[k]; inp.dispatchEvent(new Event('change')); } catch (e) { }
                           }
                         }
                       }
@@ -1712,11 +1837,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                       const parentComments = parent.comments || parent.emissionsComments || parent.comments || '';
                       if (parentComments) {
-                        const commentsGroup = Array.from(sec.querySelectorAll('.form-group.full-width')).find(g => { const l=(g.querySelector('label')&&g.querySelector('label').textContent||'').toLowerCase(); return l.includes('comment'); });
+                        const commentsGroup = Array.from(sec.querySelectorAll('.form-group.full-width')).find(g => { const l = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase(); return l.includes('comment'); });
                         const cinput = commentsGroup && commentsGroup.querySelector('input,textarea');
                         if (cinput) { cinput.value = parentComments; cinput.dispatchEvent(new Event('change')); }
                       }
-                    } catch(e) {}
+                    } catch (e) { }
                   }
 
                   // populate warnings/tags from ticket.sections.emissionsWarnings or fallback keys
@@ -1731,7 +1856,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         list.innerHTML = '';
                         items.forEach((t) => {
                           const chip = document.createElement('div'); chip.className = 'tag-chip'; chip.textContent = t;
-                          const x = document.createElement('button'); x.type='button'; x.className='tag-remove'; x.textContent='×';
+                          const x = document.createElement('button'); x.type = 'button'; x.className = 'tag-remove'; x.textContent = '×';
                           x.addEventListener('click', () => { /* no-op on load */ });
                           chip.appendChild(x); list.appendChild(chip);
                         });
@@ -1745,14 +1870,14 @@ document.addEventListener('DOMContentLoaded', () => {
                   const row = rows[0];
                   if (row) {
                     const mapping = {
-                      OBD: ['obd','obd/emissions','obd_emissions','obd'],
-                      inspections: ['inspections','inspection','inspected'],
-                      emissionsDue: ['emissionsdue','emissions_due','emissionsdue'],
-                      nextOilChange: ['nextoilchange','nextOilChange','next_oil_change','nextOilChange'],
-                      inspectedBy: ['inspectedby','inspectedBy','inspected_by'],
-                      reInspectedBy: ['reinspectedby','reInspectedBy','re_inspected_by','reInspectedBy'],
-                      warnings: ['warnings','warnings'],
-                      comments: ['comments','comment']
+                      OBD: ['obd', 'obd/emissions', 'obd_emissions', 'obd'],
+                      inspections: ['inspections', 'inspection', 'inspected'],
+                      emissionsDue: ['emissionsdue', 'emissions_due', 'emissionsdue'],
+                      nextOilChange: ['nextoilchange', 'nextOilChange', 'next_oil_change', 'nextOilChange'],
+                      inspectedBy: ['inspectedby', 'inspectedBy', 'inspected_by'],
+                      reInspectedBy: ['reinspectedby', 'reInspectedBy', 're_inspected_by', 'reInspectedBy'],
+                      warnings: ['warnings', 'warnings'],
+                      comments: ['comments', 'comment']
                     };
                     Object.keys(mapping).forEach(k => {
                       const keys = mapping[k];
@@ -2202,7 +2327,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Emissions: save emissions table, middle info, and warnings to /mechanic/emissions ---
 (function wireEmissionsSave() {
-  const bind = function() {
+  const bind = function () {
     try {
       const saveBtn = document.querySelector('.section-save[data-section="emissions"]');
       const emissionsSection = document.getElementById('emissions');
@@ -2210,7 +2335,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (saveBtn.dataset.boundEmissionsSave === '1') return;
       saveBtn.dataset.boundEmissionsSave = '1';
 
-      saveBtn.addEventListener('click', async function(e) {
+      saveBtn.addEventListener('click', async function (e) {
         e.preventDefault(); e.stopPropagation();
         const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
         if (!ticketId) { console.error('Cannot save emissions: missing ticket id. Save Repair Order first.'); return; }
@@ -2254,7 +2379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // tags (warnings)
         const tagsHidden = document.getElementById('tags-hidden');
         let tags = [];
-        if (tagsHidden && tagsHidden.value) tags = tagsHidden.value.split(',').map(s=>s.trim()).filter(Boolean);
+        if (tagsHidden && tagsHidden.value) tags = tagsHidden.value.split(',').map(s => s.trim()).filter(Boolean);
 
         // parent comments - find the full-width form-group whose label contains 'comment'
         let parentCommentsInput = null;
@@ -2262,9 +2387,16 @@ document.addEventListener('DOMContentLoaded', () => {
           const fullGroups = Array.from(emissionsSection.querySelectorAll('.form-group.full-width'));
           for (const g of fullGroups) {
             const lbl = (g.querySelector('label') && g.querySelector('label').textContent || '').toLowerCase();
-            if (lbl.includes('comment')) { parentCommentsInput = g.querySelector('input[type="text"], textarea'); break; }
+            if (!lbl) continue;
+            const matched = aliases.some(a => lbl.includes(a.toLowerCase()) || a.toLowerCase().includes(lbl));
+            if (matched) {
+              const inp = g.querySelector('input,select,textarea');
+              if (inp && (parent[k] != null && parent[k] !== '')) {
+                try { inp.value = parent[k]; inp.dispatchEvent(new Event('change')); } catch (e) { }
+              }
+            }
           }
-        } catch (e) {}
+        } catch (e) { }
         if (!parentCommentsInput) parentCommentsInput = emissionsSection.querySelector('.form-group.full-width input[type="text"], .form-group.full-width textarea');
         const parentComments = parentCommentsInput ? (parentCommentsInput.value || '').trim() : '';
 
@@ -2277,7 +2409,7 @@ document.addEventListener('DOMContentLoaded', () => {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
           });
           if (res.status === 204) { console.log('Emissions saved (204)'); return; }
-          if (res.ok) { let p = null; try { p = await res.json(); } catch(e){ } if (p && p.success) { console.log('Emissions saved'); return; } console.warn('Emissions save unexpected ok response', res.status, p); return; }
+          if (res.ok) { let p = null; try { p = await res.json(); } catch (e) { } if (p && p.success) { console.log('Emissions saved'); return; } console.warn('Emissions save unexpected ok response', res.status, p); return; }
           let err = null; try { err = await res.json(); } catch (e) { err = null; } console.error('Emissions save failed', res.status, err);
         } catch (err) { console.error('Emissions save failed', err); }
       });
@@ -2286,8 +2418,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
 })();
 
- // --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
- (function wireVehicleInfoForm() {
+// --- Vehicle Info: force AJAX submit to /mechanic/vehicle-info to avoid interfering with main ticket submit ---
+(function wireVehicleInfoForm() {
   try {
     const vForm = document.getElementById('vehicle-info-form');
     if (!vForm) return;
@@ -2396,114 +2528,6 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Tires save failed. See console for details.');
       }
     }, { capture: true });
-  }
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-  const signatureCanvas = document.getElementById('signatureCanvas');
-  const clearBtn = document.getElementById('clearSignature');
-  const ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) || document.getElementById('vehicle-ticketId')?.value || document.getElementById('ticketId')?.value || '';
-  console.log('Signature save & ticketId:', ticketId, "canvas", !!signatureCanvas, "btn", !!clearBtn);
-
-  // --- Load saved signature for ticket (if present) ---
-  function loadSavedSignatureForTicket(ticketId) {
-    if (!ticketId) return;
-    const endpoint = '/mechanic/ticket-check';
-    console.log('loadSavedSignatureForTicket: POST', endpoint, { ticketId });
-
-    fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticketId: String(ticketId) })
-    })
-      .then(res => {
-        if (!res.ok) {
-          console.log('loadSavedSignatureForTicket: fetch failed', res.status);
-          return null;
-        }
-        return res.json().catch(() => null);
-      })
-      .then(json => {
-        if (!json) return;
-        if (!json.success || !json.signature) {
-          console.log('loadSavedSignatureForTicket: no signature in response', json);
-          return;
-        }
-        const sig = json.signature;
-
-        // ensure hidden inputs are present for form submit
-        const form = document.getElementById('repForm') || document.querySelector('form');
-        const ensureHidden = (name, id) => {
-          let el = form && form.querySelector(`input[name="${name}"]`);
-          if (!el) el = document.getElementById(id);
-          if (!el) {
-            el = document.createElement('input');
-            el.type = 'hidden';
-            el.name = 'signature';
-            if (id) el.id = id;
-            form && form.appendChild(el);
-          }
-          return el;
-        };
-        const idEl = ensureHidden('signatureId', 'signatureId');
-        const fileEl = ensureHidden('signatureFilename', 'signatureFilename');
-        const pathEl = ensureHidden('signaturePath', 'signaturePath');
-
-        idEl.value = String(sig.id || '');
-        fileEl.value = String(sig.filename || sig.originalName || '');
-        pathEl.value = String(sig.relativePath || sig.path || '');
-
-        // remove clear button and swap canvas for image
-        const container = document.querySelector('.form-grid') || document;
-        const canvas = container.querySelector('#signatureCanvas');
-        const clearBtn = container.querySelector('#clearSignature');
-        if (clearBtn && clearBtn.parentNode) clearBtn.parentNode.removeChild(clearBtn);
-
-        const img = document.createElement('img');
-        img.alt = 'Customer signature';
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-        if (sig.relativePath || sig.path) img.src = '/' + (sig.relativePath || sig.path).replace(/^\/+/, '');
-        else {
-          const sigDataField = container.querySelector('#signatureData, input[name="signatureData"]');
-          if (sigDataField && sigDataField.value) img.src = sigDataField.value;
-        }
-
-        if (canvas && canvas.parentNode) canvas.parentNode.replaceChild(img, canvas);
-        console.log('loadSavedSignatureForTicket: signature applied for ticket', ticketId);
-      })
-      .catch(err => {
-        console.error('loadSavedSignatureForTicket fetch error', err);
-      });
-  }
-
-  // Minimal, reliable ticket-id check that calls loadSavedSignatureForTicket once an id is available.
-  const tryLoad = () => {
-    const id =
-      (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
-      document.getElementById('vehicle-ticketId')?.value ||
-      document.getElementById('ticketId')?.value ||
-      document.getElementById('ticketIdHidden')?.value ||
-      '';
-    if (id) {
-      // call the existing loader (no-op if already applied)
-      try { loadSavedSignatureForTicket(String(id)); } catch (e) { console.error('loadSavedSignatureForTicket error', e); }
-      return true;
-    }
-    return false;
-  };
-
-  // attempt immediately
-  if (!tryLoad()) {
-    // if not present yet, listen for changes on likely inputs and try again once
-    const watch = document.querySelector('#vehicle-ticketId, #ticketId, #ticketIdHidden');
-    if (watch) {
-      const onChange = () => { tryLoad(); watch.removeEventListener('change', onChange); };
-      watch.addEventListener('change', onChange);
-    } else {
-      // fallback: re-attempt after a short delay (covers server-inserted inputs)
-      setTimeout(tryLoad, 500);
-    }
   }
 });
 
