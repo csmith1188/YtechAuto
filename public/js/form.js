@@ -746,7 +746,6 @@ document.addEventListener('DOMContentLoaded', function () {
     async function uploadSignatureAndApply() {
       console.log('does signature even WORK?', !!signatureData.value);
       try {
-        // find ticket id robustly and append under multiple keys for server compatibility
         // include ticket id if available (server may expect ticketID / ticketId / id)
         let ticketId = (window.__SERVER_TICKET__ && window.__SERVER_TICKET__.id) ||
           document.getElementById('vehicle-ticketId')?.value ||
@@ -757,13 +756,6 @@ document.addEventListener('DOMContentLoaded', function () {
             ticketId = p.get('id') || p.get('ticketId') || p.get('ticketID') || null;
           } catch (e) { ticketId = null; }
         }
-
-
-
-
-
-
-
 
         const endpoint = '/upload-signature';
         console.log('uploadSignatureAndApply: POST', 'ticketId=', ticketId);
