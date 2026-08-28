@@ -577,20 +577,32 @@ router.post('/mechanic', ensureLoggedIn, completionPdfUpload.single('completionP
             if (error) console.error(message, error);
             db.run('ROLLBACK', () => res.status(500).send(message));
         };
+
+        const completeResponse = async () => {
+            if (isCompleting) {
+                try {
+                    await emailCompletedTicket(db, targetId, req.file && req.file.buffer);
+                } catch (emailErr) {
+                    console.error('Failed to email completed ticket:', emailErr);
+                }
+            }
+            return res.redirect('/mechanic?id=' + targetId);
+        };
+    
         const afterRepairs = () => {
             if (body.signature && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(body.signature.trim())) {
                 saveSignatureFromDataUrl(db, body.signature, custName, targetId)
-                    .then(() => db.run('COMMIT', (commitErr) => {
+                    .then(() => db.run('COMMIT', async (commitErr) => {
                         if (commitErr) return failSave('Failed to finalize ticket save', commitErr);
-                        return res.redirect('/mechanic?id=' + targetId);
+                        return completeResponse();
                     }))
                     .catch((sigErr) => {
                         failSave('Failed to save customer signature', sigErr);
                     });
             } else {
-                return db.run('COMMIT', (commitErr) => {
+                return db.run('COMMIT', async (commitErr) => {
                     if (commitErr) return failSave('Failed to finalize ticket save', commitErr);
-                    return res.redirect('/mechanic?id=' + targetId);
+                    return completeResponse();
                 });
             }
         };
