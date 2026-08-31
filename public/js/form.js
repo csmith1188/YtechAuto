@@ -1042,6 +1042,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!errors || errors.length === 0) return;
       const completeButton = document.getElementById('completeTicketBottom');
       if (completeButton) completeButton.disabled = false;
+      // Reset ticket status so that subsequent "Save Ticket" clicks only validate core fields
+      const ticketStatusEl = document.getElementById('ticketStatus');
+      if (ticketStatusEl) ticketStatusEl.value = '';
       invalidElements.forEach(element => {
         element.classList.add('validation-missing');
         const section = element.closest('.section');
