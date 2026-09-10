@@ -296,11 +296,17 @@ document.addEventListener('DOMContentLoaded', function () {
         if (p) p.textContent = 'Drop file here or click to upload';
         return;
       }
-      if (isVideoFile(file) && videoUploaded) {
-        alert('A video has already been uploaded. You cannot upload another video. Choose a different file type.');
+      if (!isVideoFile(file)) {
+        alert('Please select a video file.');
         videoFileInput.value = '';
         selectedFile = null;
-        if (p) p.textContent = 'A video is already uploaded. Choose a different file type.';
+        return;
+      }
+      if (file.size > MAX_VIDEO_SIZE) {
+        alert(VIDEO_SIZE_ERROR);
+        videoFileInput.value = '';
+        selectedFile = null;
+        if (p) p.textContent = 'File is too large. Break the video down into smaller bits.';
         uploadBtn.disabled = true;
         return;
       }
@@ -311,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function () {
       renderVideoPreviews(videoFileInput.files)
     });
 
-    // upload to server; after successful upload, mark videoUploaded if the uploaded file was a video
+    // upload to server; each successful upload is stored as a separate video row
     uploadBtn.addEventListener('click', function () {
       if (!selectedFile) {
         alert('Please select a file first.');
@@ -354,11 +360,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (p) p.textContent = 'File uploaded';
             videoUploadZone.style.backgroundColor = '#d4edda';
             videoUploadZone.style.borderColor = '#c3e6cb';
-            // if uploaded file was a video, mark so no more videos can be uploaded
-            if (isVideoFile(selectedFile)) videoUploaded = true;
-            // clear current selection but keep ability to choose other files
+            // clear current selection and keep the upload controls available
             try { videoFileInput.value = ''; } catch (e) { }
             selectedFile = null;
+            uploadBtn.disabled = true;
+            uploadBtn.style.opacity = '0.5';
+            uploadBtn.textContent = 'Upload';
             // ensure any server-rendered or newly-added video previews have remove (×) handlers
             try { if (typeof window.ensureVideoRemoveButtons === 'function') window.ensureVideoRemoveButtons(); } catch (e) { }
           } else {
@@ -731,31 +738,15 @@ document.addEventListener('DOMContentLoaded', function () {
         .then((data) => {
           if (data && data.success) {
             alert('Images uploaded successfully!');
-            // lock the preview so user cannot remove/upload more images
-            imagesLocked = true;
-            // hide all remove buttons and style zone to indicate locked state
-            if (previewEl) previewEl.querySelectorAll('.thumb-remove').forEach(b => b.remove());
-
-            // robust removal for any video "remove" buttons (matches title/aria/text/class variants)
-            try {
-              const vCont = document.getElementById('video-preview');
-              if (vCont) {
-                Array.from(vCont.querySelectorAll('button')).forEach(b => {
-                  const txt = (b.textContent || '').trim();
-                  const title = (b.title || '').toLowerCase();
-                  const aria = (b.getAttribute && (b.getAttribute('aria-label') || '') || '').toLowerCase();
-                  if (b.classList.contains('video-remove') || b.classList.contains('thumb-remove') || title.includes('remove') || aria.includes('remove') || txt === '×' || txt === '✕' || txt.toLowerCase() === 'x') {
-                    b.remove();
-                  }
-                });
-              }
-            } catch (e) { /* ignore */ }
-            zone.style.backgroundColor = '#d4edda';
-            zone.style.borderColor = '#c3e6cb';
-            // disable inputs and upload button
-            try { fileInput.value = ''; fileInput.disabled = true; } catch (e) { }
-            uploadBtn.disabled = true; uploadBtn.style.opacity = '0.5'; uploadBtn.textContent = 'Uploaded';
-            // update status text
+            selectedFiles = [];
+            imagesLocked = false;
+            if (previewEl) previewEl.innerHTML = '';
+            try { fileInput.value = ''; fileInput.disabled = false; } catch (e) { }
+            zone.style.backgroundColor = '';
+            zone.style.borderColor = '';
+            uploadBtn.disabled = true;
+            uploadBtn.style.opacity = '0.5';
+            uploadBtn.textContent = 'Upload';
             updateControls();
           } else {
             alert('Upload failed: ' + (data && data.message ? data.message : 'Unknown'));
@@ -3495,6 +3486,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isVideo) {
         alert('Please select a video file.');
         videoinput.value = '';
+        return;
+      }
+      if (file.size > MAX_VIDEO_SIZE) {
+        alert(VIDEO_SIZE_ERROR);
+        videoinput.value = '';
+        renderVideoPreview(null);
         return;
       }
 

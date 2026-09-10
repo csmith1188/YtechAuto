@@ -3,12 +3,14 @@ const multer = require('multer');
 const path = require('path');
 const router = express.Router();
 const fs = require('fs');
+const { execFile } = require('child_process');
 const { sendMail } = require('../middleware/mail');
 const { ensureLoggedIn } = require('../middleware/auth');
 
 const videoDir = path.join(__dirname, '..', 'upload', 'videos');
 const imageDir = path.join(__dirname, '..', 'upload', 'images');
 const signatureDir = path.join(__dirname, '..', 'upload', 'signatures');
+const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
 const completionPdfUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 }
@@ -16,6 +18,20 @@ const completionPdfUpload = multer({
 fs.mkdirSync(videoDir, { recursive: true });
 fs.mkdirSync(imageDir, { recursive: true });
 fs.mkdirSync(signatureDir, { recursive: true });
+
+function compressVideo(inputPath, outputPath, callback) {
+    execFile(ffmpegPath, [
+        '-y',
+        '-i', inputPath,
+        '-c:v', 'libx264',
+        '-crf', '23',
+        '-preset', 'medium',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
+        outputPath
+    ], { timeout: 30 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 }, callback);
+}
 
 async function emailCompletedTicket(db, ticketId, pdfBuffer) {
     const ticket = await new Promise((resolve, reject) => db.get('SELECT * FROM tickets WHERE id = ?', [ticketId], (err, row) => err ? reject(err) : resolve(row)));
@@ -1474,34 +1490,65 @@ router.post('/upload-video', ensureLoggedIn, (req, res, next) => {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
     const file = req.file;
-    const relativePath = path.relative(path.join(__dirname, '..'), file.path).split(path.sep).join('/');
+    const compressedFilename = `video-compressed-${Date.now()}-${Math.round(Math.random() * 1E9)}.mp4`;
+    const compressedPath = path.join(videoDir, compressedFilename);
 
-    // accept several common field names from the client (ticketID, ticketId, id)
-    const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
-    const insertSql = `INSERT INTO videos (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
-                     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
-    const params = [ticketIdValue, file.filename, file.originalname, relativePath, file.mimetype, file.size];
-
-    db.run(insertSql, params, function (err) {
-        if (err) {
-            console.error('DB insert failed, removing uploaded file:', err);
-            // remove the saved file to avoid orphan
-            fs.unlink(file.path, (unlinkErr) => {
-                if (unlinkErr) console.error('Failed to unlink file after DB error:', unlinkErr);
-                return res.status(500).json({ success: false, message: 'Database error' });
-            });
-            return;
+    compressVideo(file.path, compressedPath, (compressionError, stdout, stderr) => {
+        if (compressionError) {
+            console.error('Video compression failed:', stderr || compressionError.message);
+            fs.unlink(file.path, () => { });
+            fs.unlink(compressedPath, () => { });
+            return res.status(500).json({ success: false, message: 'Video compression failed. Please try again.' });
         }
 
-        res.json({ success: true, id: this.lastID, path: relativePath });
+        fs.stat(compressedPath, (statError, compressedStats) => {
+            if (statError || !compressedStats.size) {
+                console.error('Compressed video was not created:', statError || 'empty output');
+                fs.unlink(file.path, () => { });
+                fs.unlink(compressedPath, () => { });
+                return res.status(500).json({ success: false, message: 'Video compression did not produce a valid file.' });
+            }
+
+            const relativePath = path.relative(path.join(__dirname, '..'), compressedPath).split(path.sep).join('/');
+
+            // accept several common field names from the client (ticketID, ticketId, id)
+            const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
+            const insertSql = `INSERT INTO videos (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
+                         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
+            const params = [ticketIdValue, compressedFilename, file.originalname, relativePath, 'video/mp4', compressedStats.size];
+
+            db.run(insertSql, params, function (err) {
+                fs.unlink(file.path, (unlinkErr) => {
+                    if (unlinkErr) console.error('Failed to remove original uploaded video:', unlinkErr);
+                });
+                if (err) {
+                    console.error('DB insert failed, removing compressed video:', err);
+                    fs.unlink(compressedPath, (unlinkErr) => {
+                        if (unlinkErr) console.error('Failed to unlink compressed video:', unlinkErr);
+                        return res.status(500).json({ success: false, message: 'Database error' });
+                    });
+                    return;
+                }
+
+                res.json({ success: true, id: this.lastID, path: relativePath, filename: compressedFilename });
+            });
+        });
     });
 });
 
 // image upload route (protected with auth)
-router.post('/upload-image', ensureLoggedIn, imageUpload.array('image'), (req, res) => {
+router.post('/upload-image', ensureLoggedIn, (req, res, next) => {
+    imageUpload.array('image')(req, res, (err) => {
+        if (!err) return next();
+        if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(413).json({ success: false, message: 'One or more images are too large. Each image must be 100 MB or smaller.' });
+        }
+        return res.status(400).json({ success: false, message: err.message || 'Image upload failed' });
+    });
+}, (req, res) => {
     const db = req.app.locals.db;
     if (!db) {
-        if (req.file) fs.unlink(req.file.path, () => { });
+        (req.files || []).forEach(file => fs.unlink(file.path, () => { }));
         return res.status(500).json({ success: false, message: 'Database not available' });
     }
     if (!req.files || req.files.length === 0) return res.status(400).json({ success: false, message: 'No files uploaded' });
@@ -1540,7 +1587,8 @@ router.post('/upload-image', ensureLoggedIn, imageUpload.array('image'), (req, r
 
             pending -= 1;
             if (pending === 0) {
-                return res.json({ success: true, files: results });
+                const uploaded = results.some(result => result.success);
+                return res.status(uploaded ? 200 : 500).json({ success: uploaded, files: results });
             }
         });
     });
