@@ -261,7 +261,7 @@ router.get('/mechanic', ensureLoggedIn, (req, res) => {
 
                                     // load emissions child rows joined to their parent (emissions) so client can populate the visual table
                                     const emissionsJoinSql = `
-                                                                        SELECT et.*, e.ticketID AS emissionsTicketID, e.comments AS emissionsComments, e.obd AS emissionsOBD, e.inspections AS emissionsInspections, e.emissionsDue AS emissionsDue, e.nextOilChange AS emissionsNextOilChange, e.inspectedBy AS emissionsInspectedBy, e.reInspectedBy AS emissionsReInspectedBy
+                                                                        SELECT et.*, e.ticketID AS emissionsTicketID, e.comments AS emissionsComments, e.obd AS emissionsOBD, e.inspections AS emissionsInspections, e.emissionsDue AS emissionsDue, e.nextOilChange AS emissionsNextOilChange
                                                                         FROM emissionsTable et
                                                                         INNER JOIN emissions e ON et.emissionsID = e.id
                                                                         WHERE e.ticketID = ?
@@ -403,8 +403,12 @@ router.post('/mechanic', ensureLoggedIn, completionPdfUpload.single('completionP
         const requiredFields = [
             ['roDate', roDate, 'Date'],
             ['technician', technician, 'Technician'],
+            ['timeIn', timeArrive, 'Time In'],
             ['custName', custName, 'Customer name'],
             ['custAddress', custAdd, 'Customer address'],
+            ['custPhone', custPhone, 'Customer phone'],
+            ['custEmail', custEmail, 'Customer email'],
+            ['concern', concern, 'Concern'],
             ['diagnosis', diagnosis, 'Diagnosis']
         ];
         const missingField = requiredFields.find(([, value]) => !String(value).trim());
@@ -1283,14 +1287,12 @@ router.post('/mechanic/emissions', ensureLoggedIn, (req, res) => {
     const inspections = emissionsInfo.inspections || body.inspections || '';
     const emissionsDue = emissionsInfo.emissionsDue || body.emissionsDue || body.emissions_due || '';
     const nextOilChange = emissionsInfo.nextOilChange || body.nextOilChange || body.next_oil_change || '';
-    const inspectedBy = emissionsInfo.inspectedBy || body.inspectedBy || body.inspected_by || '';
-    const reInspectedBy = emissionsInfo.reInspectedBy || body.reInspectedBy || body.re_inspected_by || '';
     const warningsText = emissionsInfo.warnings || body.warningsText || body.warnings || '';
     // ensure comments always defined and add debug logging to inspect incoming payload
     const comments = emissionsInfo.comments || body.comments || body.emissionsComments || '';
     try { console.log('POST /mechanic/emissions - raw body keys:', Object.keys(body)); } catch (e) { }
     try { console.log('POST /mechanic/emissions - body snapshot:', JSON.stringify(body)); } catch (e) { }
-    console.log('Received emissions info:', { OBD, inspections, emissionsDue, nextOilChange, inspectedBy, reInspectedBy, warningsText, comments });
+    console.log('Received emissions info:', { OBD, inspections, emissionsDue, nextOilChange, warningsText, comments });
     // tags/warnings array
     let tags = body.tags || body.warnings || emissionsInfo.tags || emissionsInfo.warnings || null;
     if (typeof tags === 'string') {
@@ -1342,8 +1344,6 @@ router.post('/mechanic/emissions', ensureLoggedIn, (req, res) => {
                                     inspections: inspections,
                                     emissionsdue: emissionsDue,
                                     nextoilchange: nextOilChange,
-                                    inspectedby: inspectedBy,
-                                    reinspectedby: reInspectedBy,
                                     warnings: warningsText,
                                     comments: comments
                                 };
@@ -1377,8 +1377,6 @@ router.post('/mechanic/emissions', ensureLoggedIn, (req, res) => {
                                     if (lower === 'inspections') return inspections || '';
                                     if (lower === 'emissionsdue') return emissionsDue || '';
                                     if (lower === 'nextoilchange') return nextOilChange || '';
-                                    if (lower === 'inspectedby') return inspectedBy || '';
-                                    if (lower === 'reinspectedby') return reInspectedBy || '';
                                     if (lower === 'warnings') return warningsText || '';
                                     if (lower === 'comments') return comments || '';
                                     // default for other columns: empty string if NOT NULL, otherwise null

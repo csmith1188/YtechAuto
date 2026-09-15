@@ -2,7 +2,6 @@ console.log('form.js loaded');
 document.addEventListener('DOMContentLoaded', function () {
   const MAX_VIDEO_SIZE = 250 * 1024 * 1024;
   const VIDEO_SIZE_ERROR = 'File size is too large. Please break the video down into smaller bits and upload them separately. Videos must be 250 MB or smaller.';
-
   // guard to avoid double initialization if other scripts also run
   if (window.customAccordionInitialized) {
     console.log('customAccordion already initialized, skipping duplicate init.');
@@ -296,20 +295,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (p) p.textContent = 'Drop file here or click to upload';
         return;
       }
-      if (!isVideoFile(file)) {
-        alert('Please select a video file.');
-        videoFileInput.value = '';
-        selectedFile = null;
-        return;
-      }
-      if (file.size > MAX_VIDEO_SIZE) {
-        alert(VIDEO_SIZE_ERROR);
-        videoFileInput.value = '';
-        selectedFile = null;
-        if (p) p.textContent = 'File is too large. Break the video down into smaller bits.';
-        uploadBtn.disabled = true;
-        return;
-      }
+
       selectedFile = file;
       if (p) p.textContent = `Selected: ${selectedFile.name}`;
       uploadBtn.disabled = false;
@@ -398,7 +384,6 @@ document.addEventListener('DOMContentLoaded', function () {
     fileInput.multiple = true;
 
     let selectedFiles = []; // array of File
-    let imagesLocked = false; // when true, no further add/remove allowed
     const MAX_BYTES = 5 * 1024 * 1024; // 5MB per file
     const MAX_FILES = 10;
 
@@ -425,29 +410,30 @@ document.addEventListener('DOMContentLoaded', function () {
         img.style.objectFit = 'cover';
         img.style.display = 'block';
         img.alt = file.name || '';
+        const isServerImage = !!(file && file.src);
 
-        // remove button overlay
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'thumb-remove';
-        removeBtn.textContent = '×';
-        removeBtn.title = 'Remove';
-        removeBtn.style.position = 'absolute';
-        removeBtn.style.top = '2px';
-        removeBtn.style.right = '2px';
-        removeBtn.style.background = 'rgba(0,0,0,0.6)';
-        removeBtn.style.color = '#fff';
-        removeBtn.style.border = 'none';
-        removeBtn.style.borderRadius = '12px';
-        removeBtn.style.width = '24px';
-        removeBtn.style.height = '24px';
-        removeBtn.style.cursor = 'pointer';
-        removeBtn.style.lineHeight = '20px';
-        removeBtn.style.padding = '0';
-        removeBtn.style.fontSize = '16px';
-
-        // if locked, hide remove control
-        if (imagesLocked) removeBtn.style.display = 'none';
+        // remove button overlay for new local files only
+        let removeBtn = null;
+        if (!isServerImage) {
+          removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'thumb-remove';
+          removeBtn.textContent = '×';
+          removeBtn.title = 'Remove';
+          removeBtn.style.position = 'absolute';
+          removeBtn.style.top = '2px';
+          removeBtn.style.right = '2px';
+          removeBtn.style.background = 'rgba(0,0,0,0.6)';
+          removeBtn.style.color = '#fff';
+          removeBtn.style.border = 'none';
+          removeBtn.style.borderRadius = '12px';
+          removeBtn.style.width = '24px';
+          removeBtn.style.height = '24px';
+          removeBtn.style.cursor = 'pointer';
+          removeBtn.style.lineHeight = '20px';
+          removeBtn.style.padding = '0';
+          removeBtn.style.fontSize = '16px';
+        }
 
         // file object (File) -> read; if object has src property (server images), use it
         // attach diagnostics so we can see whether the image actually loads/draws
@@ -493,29 +479,30 @@ document.addEventListener('DOMContentLoaded', function () {
           } catch (e) { img.alt = 'image'; console.error('preview: failed to set src from fallback', e); }
         }
 
-        removeBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          if (imagesLocked) return;
-          // remove by matching name+size if available, otherwise by index
-          const key = file && file.name && file.size ? (file.name + '|' + file.size) : null;
-          if (key) {
-            selectedFiles = selectedFiles.filter(f => (f.name + '|' + (f.size || 0)) !== key);
-          } else {
-            selectedFiles.splice(idx, 1);
-          }
-          // keep the input.files in sync when possible (so any other preview logic that uses fileInput.files stays accurate)
-          try {
-            const dt = new DataTransfer();
-            selectedFiles.forEach(f => { if (f instanceof File) dt.items.add(f); });
-            fileInput.files = dt.files;
-          } catch (e) { /* ignore if platform doesn't allow programmatic FileList changes */ }
+        if (removeBtn) {
+          removeBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            // remove by matching name+size if available, otherwise by index
+            const key = file && file.name && file.size ? (file.name + '|' + file.size) : null;
+            if (key) {
+              selectedFiles = selectedFiles.filter(f => (f.name + '|' + (f.size || 0)) !== key);
+            } else {
+              selectedFiles.splice(idx, 1);
+            }
+            // keep the input.files in sync when possible (so any other preview logic that uses fileInput.files stays accurate)
+            try {
+              const dt = new DataTransfer();
+              selectedFiles.forEach(f => { if (f instanceof File) dt.items.add(f); });
+              fileInput.files = dt.files;
+            } catch (e) { /* ignore if platform doesn't allow programmatic FileList changes */ }
 
-          updateControls();
-          showPreview(selectedFiles);
-        });
+            updateControls();
+            showPreview(selectedFiles);
+          });
+        }
 
         wrapper.appendChild(img);
-        wrapper.appendChild(removeBtn);
+        if (removeBtn) wrapper.appendChild(removeBtn);
         list.appendChild(wrapper);
       });
 
@@ -524,17 +511,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateControls() {
       const p = zone.querySelector('p');
-      if (p) p.textContent = imagesLocked ? `Images uploaded` : `Selected ${selectedFiles.length} image(s)`;
+      if (p) p.textContent = `Selected ${selectedFiles.length} image(s)`;
       if (selectedFiles.length === 0) {
         uploadBtn.disabled = true;
         uploadBtn.style.opacity = '0.5';
       } else {
-        uploadBtn.disabled = imagesLocked;
-        uploadBtn.style.opacity = imagesLocked ? '0.5' : '1';
+        uploadBtn.disabled = false;
+        uploadBtn.style.opacity = '1';
       }
 
-      // when imagesLocked, disable file input to prevent changes
-      try { fileInput.disabled = imagesLocked; } catch (e) { }
+      try { fileInput.disabled = false; } catch (e) { }
     }
 
     // Expose a helper to apply server-provided images (URLs or {src,filename})
@@ -545,7 +531,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (typeof it === 'string') return { src: it, name: `image-${i}`, size: 0 };
         return { src: it.src || it.url || it.path || '', name: it.filename || it.name || `image-${i}`, size: it.size || 0 };
       }).filter(f => f.src);
-      imagesLocked = true;
 
       // ensure we have a visible preview container -- prefer existing previewEl, otherwise make one under the zone
       const container = document.getElementById('image-preview')
@@ -602,15 +587,11 @@ document.addEventListener('DOMContentLoaded', function () {
       updateControls();
 
       // helper: remove video "remove" buttons robustly (matches class/title/aria-label/text variants)
-      // visually lock zone and remove file input ability
       try {
         zone.style.backgroundColor = '#d4edda';
         zone.style.borderColor = '#c3e6cb';
       } catch (e) { }
       try {
-        // remove any visible remove buttons (showPreview already hides them when imagesLocked true)
-        if (previewEl) previewEl.querySelectorAll('.thumb-remove').forEach(b => b.remove());
-
         /* remove any video "remove" buttons too (server-rendered or preview previews) */
         try {
           const vContainer = document.getElementById('video-preview');
@@ -622,17 +603,8 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         } catch (e) { /* ignore */ }
       } catch (e) { }
-      try { fileInput.value = ''; fileInput.disabled = true; } catch (e) { }
-      try { uploadBtn.disabled = true; uploadBtn.style.opacity = '0.5'; uploadBtn.textContent = 'Uploaded'; } catch (e) { }
-
-      // also disable any video upload controls (if present on page) when images are locked / viewing saved ticket
-      try {
-        //change later
-        const vidInput = document.getElementById('video-file');
-        const vidBtn = document.getElementById('upload-btn');
-        if (vidInput) vidInput.disabled = true;
-        if (vidBtn) { vidBtn.disabled = true; vidBtn.style.opacity = '0.5'; }
-      } catch (e) { /* ignore */ }
+      try { fileInput.value = ''; fileInput.disabled = false; } catch (e) { }
+      try { uploadBtn.disabled = false; uploadBtn.style.opacity = '1'; uploadBtn.textContent = 'Upload'; } catch (e) { }
     }
 
     // expose helper to global so populateFromServerTicket and other loaders can apply server images
@@ -642,18 +614,16 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (e) { console.warn('setupImageUpload: failed to bind window.applyUploadedImages', e); }
 
     if (trigger) {
-      trigger.addEventListener('click', function (e) { e.preventDefault(); if (!imagesLocked) fileInput.click(); });
+      trigger.addEventListener('click', function (e) { e.preventDefault(); fileInput.click(); });
     }
 
     zone.addEventListener('click', function (e) {
-      if (imagesLocked) return;
       if (e.target !== trigger && e.target !== uploadBtn) fileInput.click();
     });
 
-    zone.addEventListener('dragover', function (e) { if (!imagesLocked) { e.preventDefault(); zone.classList.add('dragover'); } });
-    zone.addEventListener('dragleave', function (e) { if (!imagesLocked) { e.preventDefault(); zone.classList.remove('dragover'); } });
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', function (e) { e.preventDefault(); zone.classList.remove('dragover'); });
     zone.addEventListener('drop', function (e) {
-      if (imagesLocked) return;
       e.preventDefault(); zone.classList.remove('dragover');
       const fileList = e.dataTransfer && e.dataTransfer.files;
       if (fileList && fileList.length) {
@@ -664,13 +634,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     fileInput.addEventListener('change', function (e) {
-      if (imagesLocked) return;
       const fileList = e.target.files;
       if (fileList && fileList.length) handleFilesChosen(Array.from(fileList));
     });
 
     function handleFilesChosen(filesArr) {
-      if (imagesLocked) return;
       // merge and dedupe by name+size to avoid duplicates
       const combined = selectedFiles.concat(filesArr);
       const dedup = [];
@@ -703,7 +671,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     uploadBtn.addEventListener('click', function () {
-      if (imagesLocked) return;
       if (!selectedFiles || selectedFiles.length === 0) { alert('Please select one or more images first.'); return; }
 
       // prefer current input.files if present (keeps behavior consistent when other preview/remove code updated input.files)
@@ -737,16 +704,30 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(res => res.json())
         .then((data) => {
           if (data && data.success) {
+
+
+            //here
             alert('Images uploaded successfully!');
-            selectedFiles = [];
-            imagesLocked = false;
-            if (previewEl) previewEl.innerHTML = '';
+            // robust removal for any video "remove" buttons (matches title/aria/text/class variants)
+            try {
+              const vCont = document.getElementById('video-preview');
+              if (vCont) {
+                Array.from(vCont.querySelectorAll('button')).forEach(b => {
+                  const txt = (b.textContent || '').trim();
+                  const title = (b.title || '').toLowerCase();
+                  const aria = (b.getAttribute && (b.getAttribute('aria-label') || '') || '').toLowerCase();
+                  if (b.classList.contains('video-remove') || b.classList.contains('thumb-remove') || title.includes('remove') || aria.includes('remove') || txt === '×' || txt === '✕' || txt.toLowerCase() === 'x') {
+                    b.remove();
+                  }
+                });
+              }
+            } catch (e) { /* ignore */ }
+            // keep inputs active so user can choose files again
             try { fileInput.value = ''; fileInput.disabled = false; } catch (e) { }
-            zone.style.backgroundColor = '';
-            zone.style.borderColor = '';
-            uploadBtn.disabled = true;
-            uploadBtn.style.opacity = '0.5';
+            uploadBtn.disabled = false;
+            uploadBtn.style.opacity = '1';
             uploadBtn.textContent = 'Upload';
+            // update status text
             updateControls();
           } else {
             alert('Upload failed: ' + (data && data.message ? data.message : 'Unknown'));
@@ -956,17 +937,31 @@ document.addEventListener('DOMContentLoaded', function () {
       const hiddenIn = document.getElementById('timeIn');
       const hiddenOut = document.getElementById('timeOut');
 
-      if (!inHour || !inMin || !inAmPm || !outHour || !outMin || !outAmPm) {
+      const hasTimeIn = !!(inHour && inMin && inAmPm);
+      const hasTimeOut = !!(outHour && outMin && outAmPm);
+
+      if (hasTimeIn) {
+        const inStr = `${inHour}:${inMin} ${inAmPm}`;
+        if (hiddenIn) hiddenIn.value = inStr;
+      } else if (hiddenIn) {
+        hiddenIn.value = '';
+      }
+
+      if (hasTimeOut) {
+        const outStr = `${outHour}:${outMin} ${outAmPm}`;
+        if (hiddenOut) hiddenOut.value = outStr;
+      } else if (hiddenOut) {
+        hiddenOut.value = '';
+      }
+
+      // Time In can be saved on its own; calculate duration only after Time Out is set.
+      if (!hasTimeIn || !hasTimeOut) {
         if (totTimeField) totTimeField.value = '';
-        if (hiddenIn) hiddenIn.value = '';
-        if (hiddenOut) hiddenOut.value = '';
         return;
       }
 
       const inStr = `${inHour}:${inMin} ${inAmPm}`;
       const outStr = `${outHour}:${outMin} ${outAmPm}`;
-      if (hiddenIn) hiddenIn.value = inStr;
-      if (hiddenOut) hiddenOut.value = outStr;
 
       let tIn = timeToMinutes(inStr);
       let tOut = timeToMinutes(outStr);
@@ -1160,6 +1155,9 @@ document.addEventListener('DOMContentLoaded', function () {
       const timeOutEl = document.getElementById('timeOut');
       const custNameEl = document.getElementById('custName');
       const custAddressEl = document.getElementById('custAddress');
+      const custPhoneEl = document.getElementById('custPhone');
+      const custEmailEl = document.getElementById('custEmail');
+      const concernEl = document.getElementById('concern');
       const diagnosisEl = document.getElementById('diagnosis');
       const taxEl = document.getElementById('tax');
       const totEstimateEl = document.getElementById('totEstimate');
@@ -1209,11 +1207,23 @@ document.addEventListener('DOMContentLoaded', function () {
       const technician = technicianEl ? technicianEl.value.trim() : '';
       if (!technician) { errors.push('Technician is required.'); markInvalid(technicianEl); }
 
+      const timeIn = timeInEl ? timeInEl.value.trim() : '';
+      if (!timeIn) { errors.push('Time In is required.'); markInvalid(timeInEl); }
+
       const custName = custNameEl ? custNameEl.value.trim() : '';
       if (!custName) { errors.push('Customer name is required.'); markInvalid(custNameEl); }
 
       const custAddress = custAddressEl ? custAddressEl.value.trim() : '';
       if (!custAddress) { errors.push('Customer address is required.'); markInvalid(custAddressEl); }
+
+      const custPhone = custPhoneEl ? custPhoneEl.value.trim() : '';
+      if (!custPhone) { errors.push('Customer phone is required.'); markInvalid(custPhoneEl); }
+
+      const custEmail = custEmailEl ? custEmailEl.value.trim() : '';
+      if (!custEmail) { errors.push('Customer email is required.'); markInvalid(custEmailEl); }
+
+      const concern = concernEl ? concernEl.value.trim() : '';
+      if (!concern) { errors.push('Concern is required.'); markInvalid(concernEl); }
 
       const diagnosis = diagnosisEl ? diagnosisEl.value.trim() : '';
       if (!diagnosis) { errors.push('Diagnosis is required. Put N/A if none.'); markInvalid(diagnosisEl); }
@@ -2045,8 +2055,6 @@ document.addEventListener('DOMContentLoaded', function () {
                       inspections: ['inspections', 'inspection', 'inspected'],
                       emissionsDue: ['emissionsdue', 'emissions_due', 'emissionsdue', 'emissiondue', 'emission_due', 'emission due'],
                       nextOilChange: ['nextoilchange', 'nextOilChange', 'next_oil_change', 'nextoilchange', 'next oil change', 'next oil', 'nextoil'],
-                      inspectedBy: ['inspectedby', 'inspectedBy', 'inspected_by'],
-                      reInspectedBy: ['reinspectedby', 'reInspectedBy', 're_inspected_by']
                     };
                     Object.keys(mapKeys).forEach(k => {
                       const aliases = mapKeys[k];
@@ -2104,8 +2112,6 @@ document.addEventListener('DOMContentLoaded', function () {
                       inspections: ['inspections', 'inspection', 'inspected'],
                       emissionsDue: ['emissionsdue', 'emissions_due', 'emissionsdue'],
                       nextOilChange: ['nextoilchange', 'nextOilChange', 'next_oil_change', 'nextOilChange'],
-                      inspectedBy: ['inspectedby', 'inspectedBy', 'inspected_by'],
-                      reInspectedBy: ['reinspectedby', 'reInspectedBy', 're_inspected_by', 'reInspectedBy'],
                       warnings: ['warnings', 'warnings'],
                       comments: ['comments', 'comment']
                     };
@@ -2761,49 +2767,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (idx === -1 || !row.cells[idx]) return '';
                 const cell = row.cells[idx];
                 const input = cell.querySelector('select, input, textarea');
-                if (input) {
-                  // try direct assign
-                  input.value = val;
-                  // if select didn't match, try fuzzy match on options
-                  if (input.tagName && input.tagName.toLowerCase() === 'select') {
-                    const norm = s => (s || '').toString().toLowerCase().trim();
-                    if (norm(input.value) !== norm(val)) {
-                      const opt = Array.from(input.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
-                      if (opt) input.value = opt.value;
-                    }
-                  }
-                  input.dispatchEvent(new Event('change'));
-                } else {
-                  // no input; leave text alone (do not overwrite plain text dashes); try to find a select elsewhere in the row that corresponds to this header
-                  try {
-                    const headerCells = Array.from(sec.querySelectorAll('thead th')).map(h => (h.textContent || '').toLowerCase());
-                    // find select in same row whose header includes the column name
-                    const sel = Array.from(rowDom.querySelectorAll('select')).find(s => {
-                      try {
-                        const selIdx = Array.from(rowDom.cells).indexOf(s.closest('td'));
-                        const hdr = headerCells[selIdx] || '';
-                        return hdr.includes(col);
-                      } catch (e) { return false; }
-                    });
-                    if (sel) {
-                      try {
-                        sel.value = val;
-                        const norm = s => (s || '').toString().toLowerCase().trim();
-                        if (norm(sel.value) !== norm(val)) {
-                          const opt = Array.from(sel.options).find(o => norm(o.text) === norm(val) || norm(o.value) === norm(val));
-                          if (opt) sel.value = opt.value;
-                        }
-                        sel.dispatchEvent(new Event('change'));
-                      } catch (e) { }
-                    }
-                  } catch (e) { /* ignore fallback */ }
-                }
+                return input ? input.value : (cell.textContent || '').trim();
               };
 
-              setCellVal(specIdx, r.Spec || r.spec || '');
-              setCellVal(actualIdx, r.actual || r.Actual || r.value || '');
-              setCellVal(statusIdx, r.status || r.Status || '');
-              setCellVal(commentsIdx, r.comments || r.Notes || r.notes || '');
+              items.push({
+                item: itemLabel,
+                Spec: getCell(specIdx),
+                actual: getCell(actualIdx)
+              });
             } catch (e) { /* ignore row */ }
           });
         }
@@ -2885,8 +2856,6 @@ document.addEventListener('DOMContentLoaded', function () {
             else if (label.includes('state') || label.includes('inspection')) emissionsInfo.inspections = val;
             else if (label.includes('emission') && label.includes('due')) emissionsInfo.emissionsDue = val;
             else if (label.includes('next oil') || label.includes('next oil change')) emissionsInfo.nextOilChange = val;
-            else if (label.includes('inspected by') && !label.includes('re-')) emissionsInfo.inspectedBy = val;
-            else if (label.includes('re-inspected') || label.includes('re inspected')) emissionsInfo.reInspectedBy = val;
           });
         } catch (e) { /* ignore */ }
 
@@ -3225,354 +3194,3 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSignatureLoader);
   else initSignatureLoader();
 })();
-
-// --- video and image loader (fixed & improved) ---
-document.addEventListener('DOMContentLoaded', () => {
-  const videoUploadZone = document.getElementById('video-upload-zone');
-  const imageUploadZone = document.getElementById('image-upload-zone');
-  const videoinput = document.getElementById('video-file');
-  const imageinput = document.getElementById('image-file');
-  const videoPreviewContainer = document.getElementById('video-preview');
-  const imagePreviewContainer = document.getElementById('image-preview');
-
-  // helper to move file input before a button then remove zone
-  function relocateInputAndRemoveZone(inputEl, uploadBtnId, zoneEl) {
-    try {
-      const uploadBtn = document.getElementById(uploadBtnId);
-      // move the input next to the upload button so its files survive DOM changes
-      if (inputEl && uploadBtn && inputEl.parentNode !== uploadBtn.parentNode) {
-        uploadBtn.parentNode.insertBefore(inputEl, uploadBtn);
-        inputEl.style.display = 'none';
-      }
-
-      if (zoneEl && zoneEl.parentNode) {
-        // If the upload button is inside the zone we're about to remove,
-        // move the upload button out first so it doesn't get removed.
-        try {
-          if (uploadBtn && zoneEl.contains(uploadBtn)) {
-            zoneEl.parentNode.insertBefore(uploadBtn, zoneEl.nextSibling);
-          }
-        } catch (e) { /* ignore move failure */ }
-
-        zoneEl.parentNode.removeChild(zoneEl);
-      }
-    } catch (e) { console.warn('relocateInputAndRemoveZone failed', e); }
-  }
-
-  // ---------- Images (flex layout, multiple, removable) ----------
-  if (imageinput) {
-    const MAX_FILES = 6;
-    imageinput.multiple = true;
-
-    function renderImagePreviews(fileList) {
-      if (!imagePreviewContainer) return;
-      imagePreviewContainer.innerHTML = '';
-
-      const files = Array.from(fileList || []);
-      const wrapperList = document.createElement('div');
-      wrapperList.style.display = 'flex';
-      wrapperList.style.flexWrap = 'wrap';
-      wrapperList.style.gap = '8px';
-      wrapperList.style.alignItems = 'flex-start';
-
-      files.forEach((file, idx) => {
-        const item = document.createElement('div');
-        item.style.position = 'relative';
-        item.style.width = '140px';
-        item.style.height = '100px';
-        item.style.flex = '0 0 auto';
-        item.style.border = '1px solid #e0e0e0';
-        item.style.borderRadius = '6px';
-        item.style.overflow = 'hidden';
-        item.title = file.name || '';
-
-        const img = document.createElement('img');
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'cover';
-        img.alt = file.name || '';
-
-        // load preview (File or server-provided object with .src)
-        if (file instanceof File) {
-          const url = URL.createObjectURL(file);
-          img.src = url;
-          img.addEventListener('load', () => { try { URL.revokeObjectURL(url); } catch (_) { } });
-        } else if (file && file.src) {
-          img.src = file.src;
-        } else {
-          img.src = String(file);
-        }
-
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'thumb-remove';
-        removeBtn.textContent = '×';
-        removeBtn.title = 'Remove';
-        removeBtn.style.position = 'absolute';
-        removeBtn.style.top = '2px';
-        removeBtn.style.right = '2px';
-        removeBtn.style.background = 'rgba(0,0,0,0.6)';
-        removeBtn.style.color = '#fff';
-        removeBtn.style.border = 'none';
-        removeBtn.style.borderRadius = '12px';
-        removeBtn.style.width = '24px';
-        removeBtn.style.height = '24px';
-        removeBtn.style.cursor = 'pointer';
-        removeBtn.style.lineHeight = '20px';
-        removeBtn.style.padding = '0';
-        removeBtn.style.fontSize = '16px';
-
-        removeBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          try {
-            // Update input.files by removing the clicked file, then re-render previews.
-            const current = Array.from(imageinput.files || []);
-            if (!current.length) {
-              // nothing to do
-              return;
-            }
-
-            // prefer matching by name+size key when available
-            const key = (file && file.name && file.size) ? (file.name + '|' + file.size) : null;
-            let newFiles;
-            if (key) {
-              newFiles = current.filter(f => (f.name + '|' + (f.size || 0)) !== key);
-            } else {
-              newFiles = current.filter((_, j) => j !== idx);
-            }
-
-            // write new FileList back to input
-            const dt = new DataTransfer();
-            newFiles.forEach(f => dt.items.add(f));
-            imageinput.files = dt.files;
-
-            // re-render previews and update zone text
-            renderImagePreviews(imageinput.files);
-            updateImageZoneText();
-          } catch (err) {
-            console.warn('Failed to remove image', err);
-          }
-        });
-
-        item.appendChild(img);
-        item.appendChild(removeBtn);
-        wrapperList.appendChild(item);
-      });
-
-      imagePreviewContainer.appendChild(wrapperList);
-    }
-
-    function updateImageZoneText() {
-      try {
-        const p = imageUploadZone && imageUploadZone.querySelector('p');
-        const count = imageinput.files ? imageinput.files.length : 0;
-        if (p) p.textContent = count ? `Selected ${count} image(s)` : 'Drop images here or click to upload';
-        // indicate limit
-        if (count >= MAX_FILES) {
-          if (p) p.textContent += ` (max ${MAX_FILES})`;
-        }
-      } catch (e) { /* ignore */ }
-    }
-
-    imageinput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files || []);
-      if (!files.length) {
-        imagePreviewContainer && (imagePreviewContainer.innerHTML = '');
-        updateImageZoneText();
-        return;
-      }
-
-      // enforce max
-      const allowed = files.slice(0, MAX_FILES);
-      if (allowed.length !== files.length) {
-        // overwrite input.files to keep it consistent
-        try {
-          const dt = new DataTransfer();
-          allowed.forEach(f => dt.items.add(f));
-          imageinput.files = dt.files;
-        } catch (err) { /* ignore */ }
-      }
-      renderImagePreviews(imageinput.files);
-      updateImageZoneText();
-
-      // move input and remove visual zone so file objects survive if desired
-      relocateInputAndRemoveZone(imageinput, 'image-upload-btn', imageUploadZone);
-    });
-
-    // initial render if there are files already (e.g. server-applied)
-    if (imageinput.files && imageinput.files.length) {
-      renderImagePreviews(imageinput.files);
-      updateImageZoneText();
-    }
-  }
-
-  // ---------- Video (single file allowed) ----------
-  if (videoinput) {
-    videoinput.multiple = false; // enforce single video
-    function renderVideoPreview(file) {
-      if (!videoPreviewContainer) return;
-      videoPreviewContainer.innerHTML = '';
-      if (!file) return;
-
-      const wrapper = document.createElement('div');
-      wrapper.style.position = 'relative';
-      wrapper.style.width = '320px';
-      wrapper.style.maxWidth = '100%';
-      wrapper.style.height = '180px';
-      wrapper.style.border = '1px solid #e0e0e0';
-      wrapper.style.borderRadius = '6px';
-      wrapper.style.overflow = 'hidden';
-
-      const v = document.createElement('video');
-      v.controls = true;
-      v.style.width = '100%';
-      v.style.height = '100%';
-      v.style.objectFit = 'cover';
-      const url = URL.createObjectURL(file);
-      v.src = url;
-      v.addEventListener('loadeddata', () => { try { URL.revokeObjectURL(url); } catch (_) { } });
-
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'video-remove';
-      removeBtn.textContent = '×';
-      removeBtn.title = 'Remove video';
-      removeBtn.style.position = 'absolute';
-      removeBtn.style.top = '6px';
-      removeBtn.style.right = '6px';
-      removeBtn.style.width = '28px';
-      removeBtn.style.height = '28px';
-      removeBtn.style.border = 'none';
-      removeBtn.style.borderRadius = '14px';
-      removeBtn.style.background = 'rgba(0,0,0,0.6)';
-      removeBtn.style.color = '#fff';
-      removeBtn.style.cursor = 'pointer';
-      removeBtn.style.fontSize = '16px';
-      removeBtn.style.padding = '0';
-      removeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        try {
-          // clear and fully release the video resource to avoid blob: GET after removal
-          v.pause();
-          v.removeAttribute('src');
-          v.load && v.load();
-          try { URL.revokeObjectURL(url); } catch (_) { /* ignore */ }
-
-          // clear the file input and the preview DOM
-          videoinput.value = '';
-          videoPreviewContainer.innerHTML = '';
-
-          // re-disable upload button if present
-          const uploadBtn = document.getElementById('upload-btn');
-          if (uploadBtn) { uploadBtn.disabled = true; uploadBtn.style.opacity = '0.5'; }
-        } catch (err) {
-          console.warn('Failed to remove video file', err);
-        }
-      });
-
-      wrapper.appendChild(v);
-      wrapper.appendChild(removeBtn);
-      videoPreviewContainer.appendChild(wrapper);
-    }
-
-    videoinput.addEventListener('change', (e) => {
-      const file = (e.target.files && e.target.files[0]) || null;
-      if (!file) {
-        renderVideoPreview(null);
-        return;
-      }
-      // simple type check (accept common video types)
-      const isVideo = (file.type && file.type.startsWith('video/')) || /\.(mp4|mov|avi|mkv|webm|3gp|mpeg)$/i.test(file.name || '');
-      if (!isVideo) {
-        alert('Please select a video file.');
-        videoinput.value = '';
-        return;
-      }
-      if (file.size > MAX_VIDEO_SIZE) {
-        alert(VIDEO_SIZE_ERROR);
-        videoinput.value = '';
-        renderVideoPreview(null);
-        return;
-      }
-
-      renderVideoPreview(file);
-
-      // keep the upload zone visible — do not relocate or remove the video upload zone
-      // (users can continue to upload/change videos from the same zone)
-    });
-
-    // initial if already has file
-    if (videoinput.files && videoinput.files[0]) renderVideoPreview(videoinput.files[0]);
-  }
-
-  // Helper: ensure each video preview in #video-preview has a working remove (×) button.
-  // Creates a .video-remove button on wrappers that don't have one and updates the uploadedVideos hidden input.
-  try {
-    window.ensureVideoRemoveButtons = function () {
-      try {
-        const vContainer = document.getElementById('video-preview');
-        if (!vContainer) return;
-
-        const form = document.getElementById('repForm') || document.querySelector('form');
-
-        function updateUploadedVideosHidden(removedSrc) {
-          try {
-            if (!form) return;
-            const hid = form.querySelector('input[name="uploadedVideos"]');
-            if (!hid || !hid.value) return;
-            let arr = [];
-            try { arr = JSON.parse(hid.value || '[]'); } catch (e) { arr = []; }
-            arr = arr.filter(i => {
-              const src = (i && (i.src || i.url || i)) || '';
-              return String(src).replace(/^\/+/, '') !== String(removedSrc || '').replace(/^\/+/, '');
-            });
-            hid.value = JSON.stringify(arr);
-          } catch (e) { console.warn('updateUploadedVideosHidden error', e); }
-        }
-
-        Array.from(vContainer.children).forEach(wrapper => {
-          try {
-            // skip if already has button
-            if (wrapper.querySelector && wrapper.querySelector('button.video-remove')) return;
-            const videoEl = wrapper.querySelector && wrapper.querySelector('video');
-            // create remove button
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'video-remove';
-            removeBtn.textContent = '×';
-            removeBtn.title = 'Remove video';
-            removeBtn.style.position = 'absolute';
-            removeBtn.style.top = '6px';
-            removeBtn.style.right = '6px';
-            removeBtn.style.width = '28px';
-            removeBtn.style.height = '28px';
-            removeBtn.style.border = 'none';
-            removeBtn.style.borderRadius = '14px';
-            removeBtn.style.background = 'rgba(0,0,0,0.6)';
-            removeBtn.style.color = '#fff';
-            removeBtn.style.cursor = 'pointer';
-            removeBtn.style.fontSize = '16px';
-            removeBtn.style.padding = '0';
-            removeBtn.addEventListener('click', function (e) {
-              e.stopPropagation();
-              try {
-                // revoke blob URL if used
-                try { if (videoEl && videoEl.src && videoEl.src.startsWith('blob:')) URL.revokeObjectURL(videoEl.src); } catch (err) {}
-                const src = videoEl && (videoEl.getAttribute('src') || videoEl.src) || '';
-                if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
-                // update hidden uploadedVideos
-                updateUploadedVideosHidden(src);
-                // clear any file input local selection and disable upload control if present
-                try { const vidInput = document.getElementById('video-file'); if (vidInput) vidInput.value = ''; } catch (e) {}
-                try { const up = document.getElementById('upload-btn'); if (up) { up.disabled = true; up.style.opacity = '0.5'; } } catch (e) {}
-              } catch (err) { console.warn('video remove handler error', err); }
-            });
-
-            try { wrapper.style.position = wrapper.style.position || 'relative'; } catch (e) {}
-            wrapper.appendChild(removeBtn);
-          } catch (e) { console.warn('ensureVideoRemoveButtons per-item error', e); }
-        });
-      } catch (e) { console.warn('ensureVideoRemoveButtons error', e); }
-    };
-  } catch (e) { /* ignore helper binding errors */ }
-});
