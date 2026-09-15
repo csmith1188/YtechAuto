@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
       renderVideoPreviews(videoFileInput.files)
     });
 
-    // upload to server; after successful upload, mark videoUploaded if the uploaded file was a video
+    // upload to server; each successful upload is stored as a separate video row
     uploadBtn.addEventListener('click', function () {
       if (!selectedFile) {
         alert('Please select a file first.');
@@ -346,11 +346,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (p) p.textContent = 'File uploaded';
             videoUploadZone.style.backgroundColor = '#d4edda';
             videoUploadZone.style.borderColor = '#c3e6cb';
-            // if uploaded file was a video, mark so no more videos can be uploaded
-            if (isVideoFile(selectedFile)) videoUploaded = true;
-            // clear current selection but keep ability to choose other files
+            // clear current selection and keep the upload controls available
             try { videoFileInput.value = ''; } catch (e) { }
             selectedFile = null;
+            uploadBtn.disabled = true;
+            uploadBtn.style.opacity = '0.5';
+            uploadBtn.textContent = 'Upload';
             // ensure any server-rendered or newly-added video previews have remove (×) handlers
             try { if (typeof window.ensureVideoRemoveButtons === 'function') window.ensureVideoRemoveButtons(); } catch (e) { }
           } else {
