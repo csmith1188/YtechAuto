@@ -11,6 +11,15 @@ const videoDir = path.join(__dirname, '..', 'upload', 'videos');
 const imageDir = path.join(__dirname, '..', 'upload', 'images');
 const signatureDir = path.join(__dirname, '..', 'upload', 'signatures');
 const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+console.log(`Video compression configured with FFmpeg: ${ffmpegPath}`);
+execFile(ffmpegPath, ['-version'], { timeout: 10000 }, (error, stdout, stderr) => {
+    if (error) {
+        console.error('FFmpeg is not executable:', { path: ffmpegPath, message: error.message, stderr: stderr || '' });
+        return;
+    }
+    const version = String(stdout || '').split('\n')[0].trim();
+    console.log(`FFmpeg executable verified: ${version || ffmpegPath}`);
+});
 const completionPdfUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 }
@@ -1470,9 +1479,17 @@ router.post('/mechanic/emissions', ensureLoggedIn, (req, res) => {
 });
 
 // video upload route (protected with auth)
-router.post('/upload-video', ensureLoggedIn, (req, res, next) => {
+router.post('/upload-video', (req, res, next) => {
+    console.log('Video upload request received');
+    ensureLoggedIn(req, res, next);
+}, (req, res, next) => {
+    if (!req.user) return;
     videoUpload.single('video')(req, res, (err) => {
-        if (!err) return next();
+        if (!err) {
+            console.log(`Video upload received: ${req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'no file'}`);
+            return next();
+        }
+        console.error('Video upload parsing failed:', err);
         if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
             return res.status(413).json({
                 success: false,
@@ -1492,10 +1509,17 @@ router.post('/upload-video', ensureLoggedIn, (req, res, next) => {
     const file = req.file;
     const compressedFilename = `video-compressed-${Date.now()}-${Math.round(Math.random() * 1E9)}.mp4`;
     const compressedPath = path.join(videoDir, compressedFilename);
+    console.log(`Starting video compression: ${file.path} -> ${compressedPath}`);
 
     compressVideo(file.path, compressedPath, (compressionError, stdout, stderr) => {
         if (compressionError) {
-            console.error('Video compression failed:', stderr || compressionError.message);
+            console.error('Video compression failed:', {
+                message: compressionError.message,
+                code: compressionError.code,
+                signal: compressionError.signal,
+                stderr: stderr || '',
+                stdout: stdout || ''
+            });
             fs.unlink(file.path, () => { });
             fs.unlink(compressedPath, () => { });
             return res.status(500).json({ success: false, message: 'Video compression failed. Please try again.' });
@@ -1530,6 +1554,7 @@ router.post('/upload-video', ensureLoggedIn, (req, res, next) => {
                     return;
                 }
 
+                console.log(`Video compression completed: ${compressedFilename} (${compressedStats.size} bytes)`);
                 res.json({ success: true, id: this.lastID, path: relativePath, filename: compressedFilename });
             });
         });
