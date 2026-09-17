@@ -176,6 +176,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!videoUploadZone || !videoFileInput || !uploadBtn) return;
 
     let selectedFile = null;
+    let previewUrls = [];
 
     function isVideoFile(f) {
       if (!f) return false;
@@ -193,6 +194,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function renderVideoPreviews(fileList) {
       if (!videoPreviewContainer) return;
+      previewUrls.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch (_) { }
+      });
+      previewUrls = [];
       videoPreviewContainer.innerHTML = '';
 
       const files = Array.from(fileList || []);
@@ -219,8 +224,8 @@ document.addEventListener('DOMContentLoaded', function () {
         v.style.height = '100%';
         v.style.objectFit = 'cover';
         const url = URL.createObjectURL(file);
+        previewUrls.push(url);
         v.src = url;
-        v.addEventListener('loadeddata', () => { try { URL.revokeObjectURL(url); } catch (_) { } });
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -264,6 +269,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const dt = new DataTransfer();
             newFiles.forEach(f => dt.items.add(f));
             videoFileInput.files = dt.files;
+            selectedFile = videoFileInput.files[0] || null;
 
             // re-render previews and update zone text
             renderVideoPreviews(videoFileInput.files);
@@ -305,6 +311,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // upload to server; each successful upload is stored as a separate video row
     uploadBtn.addEventListener('click', function () {
+      selectedFile = videoFileInput.files[0] || null;
       if (!selectedFile) {
         alert('Please select a file first.');
         return;
@@ -2348,7 +2355,7 @@ document.addEventListener('DOMContentLoaded', function () {
         link.href = URL.createObjectURL(pdf);
         link.download = filename;
         link.click();
-        setTimeout(() => URL.revokeObjectURL(link.href), 0);
+        setTimeout(() => URL.revokeObjectURL(link.href), 60000);
       }
       return pdf;
     } catch (error) {
