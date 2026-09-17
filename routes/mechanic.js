@@ -1501,30 +1501,46 @@ router.post('/upload-video', (req, res, next) => {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
     const file = req.file;
-    const compressedFilename = `video-compressed-${Date.now()}-${Math.round(Math.random() * 1E9)}.mp4`;
-    const compressedPath = path.join(videoDir, compressedFilename);
+    let requestFinished = false;
+    let compressedPath;
+    const removeUploadedFiles = () => {
+        [file.path, compressedPath].filter(Boolean).forEach((filePath) => {
+            fs.unlink(filePath, (unlinkErr) => {
+                if (unlinkErr && unlinkErr.code !== 'ENOENT') {
+                    console.error('Failed to remove temporary video:', unlinkErr);
+                }
+            });
+        });
+    };
+    const sendJson = (status, payload) => {
+        if (requestFinished || res.headersSent) return;
+        requestFinished = true;
+        return res.status(status).json(payload);
+    };
+    req.on('aborted', () => {
+        requestFinished = true;
+        removeUploadedFiles();
+        console.warn('Video upload request was aborted by the client');
+    });
+    res.on('close', () => {
+        if (!res.writableFinished) {
+            requestFinished = true;
+            removeUploadedFiles();
+        }
+    });
+
+    let compressedFilename = `video-compressed-${Date.now()}-${Math.round(Math.random() * 1E9)}.mp4`;
+    let videoMimeType = 'video/mp4';
+    compressedPath = path.join(videoDir, compressedFilename);
     console.log(`Starting video compression: ${file.path} -> ${compressedPath}`);
 
-    compressVideo(file.path, compressedPath, (compressionError, stdout, stderr) => {
-        if (compressionError) {
-            console.error('Video compression failed:', {
-                message: compressionError.message,
-                code: compressionError.code,
-                signal: compressionError.signal,
-                stderr: stderr || '',
-                stdout: stdout || ''
-            });
-            fs.unlink(file.path, () => { });
-            fs.unlink(compressedPath, () => { });
-            return res.status(500).json({ success: false, message: 'Video compression failed. Please try again.' });
-        }
-
+    const finishVideoUpload = () => {
         fs.stat(compressedPath, (statError, compressedStats) => {
+            if (requestFinished) return;
             if (statError || !compressedStats.size) {
-                console.error('Compressed video was not created:', statError || 'empty output');
-                fs.unlink(file.path, () => { });
-                fs.unlink(compressedPath, () => { });
-                return res.status(500).json({ success: false, message: 'Video compression did not produce a valid file.' });
+                console.error('Video file was not created:', statError || 'empty output');
+                removeUploadedFiles();
+                return sendJson(500, { success: false, message: 'Video upload did not produce a valid file.' });
             }
 
             const relativePath = path.relative(path.join(__dirname, '..'), compressedPath).split(path.sep).join('/');
@@ -1533,25 +1549,51 @@ router.post('/upload-video', (req, res, next) => {
             const ticketIdValue = (req.body && (req.body.ticketID || req.body.ticketId || req.body.id)) || null;
             const insertSql = `INSERT INTO videos (ticketID, filename, originalName, relativePath, mimeType, sizeBytes, uploadDate)
                          VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`;
-            const params = [ticketIdValue, compressedFilename, file.originalname, relativePath, 'video/mp4', compressedStats.size];
+            const params = [ticketIdValue, compressedFilename, file.originalname, relativePath, videoMimeType, compressedStats.size];
 
             db.run(insertSql, params, function (err) {
                 fs.unlink(file.path, (unlinkErr) => {
-                    if (unlinkErr) console.error('Failed to remove original uploaded video:', unlinkErr);
+                    if (unlinkErr && unlinkErr.code !== 'ENOENT') console.error('Failed to remove original uploaded video:', unlinkErr);
                 });
                 if (err) {
-                    console.error('DB insert failed, removing compressed video:', err);
-                    fs.unlink(compressedPath, (unlinkErr) => {
-                        if (unlinkErr) console.error('Failed to unlink compressed video:', unlinkErr);
-                        return res.status(500).json({ success: false, message: 'Database error' });
-                    });
-                    return;
+                    console.error('DB insert failed, removing video:', err);
+                    removeUploadedFiles();
+                    return sendJson(500, { success: false, message: 'Database error' });
                 }
 
-                console.log(`Video compression completed: ${compressedFilename} (${compressedStats.size} bytes)`);
-                res.json({ success: true, id: this.lastID, path: relativePath, filename: compressedFilename });
+                console.log(`Video upload completed: ${compressedFilename} (${compressedStats.size} bytes)`);
+                return sendJson(200, { success: true, id: this.lastID, path: relativePath, filename: compressedFilename });
             });
         });
+    };
+
+    compressVideo(file.path, compressedPath, (compressionError, stdout, stderr) => {
+        if (requestFinished) return;
+        if (compressionError) {
+            console.error('Video compression failed:', {
+                message: compressionError.message,
+                code: compressionError.code,
+                signal: compressionError.signal,
+                stderr: stderr || '',
+                stdout: stdout || ''
+            });
+            if (compressionError.code === 'ENOENT') {
+                compressedFilename = `video-${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname || '').toLowerCase() || '.mp4'}`;
+                compressedPath = path.join(videoDir, compressedFilename);
+                videoMimeType = file.mimetype || 'application/octet-stream';
+                return fs.rename(file.path, compressedPath, (renameError) => {
+                    if (renameError) {
+                        console.error('Failed to store original video:', renameError);
+                        return sendJson(500, { success: false, message: 'Video upload failed while FFmpeg was unavailable.' });
+                    }
+                    return finishVideoUpload();
+                });
+            }
+            removeUploadedFiles();
+            return sendJson(500, { success: false, message: 'Video compression failed. Please try again.' });
+        }
+
+        return finishVideoUpload();
     });
 });
 
