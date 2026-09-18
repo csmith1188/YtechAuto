@@ -8,6 +8,11 @@ const databaseFolder = path.join(projectRoot, 'database');
 const defaultSource = path.join(databaseFolder, 'database.sqlite');
 const defaultDestination = path.join(databaseFolder, 'migrated-tickets.sqlite');
 const mediaRoots = [projectRoot, path.join(projectRoot, 'upload'), path.join(projectRoot, 'uploads')];
+const managedMediaDirectories = [
+    path.join(projectRoot, 'upload', 'Images'),
+    path.join(projectRoot, 'upload', 'videos'),
+    path.join(projectRoot, 'upload', 'signatures')
+];
 
 const ticketTables = [
     { name: 'tickets', where: 'id' },
@@ -146,6 +151,42 @@ function copyMediaFiles(rows, destinationRoot) {
     }
 }
 
+function listFiles(directory) {
+    if (!fs.existsSync(directory)) return [];
+    const files = [];
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) files.push(...listFiles(entryPath));
+        else if (entry.isFile()) files.push(entryPath);
+    }
+    return files;
+}
+
+function removeUnreferencedMedia(rows) {
+    const comparePath = (filePath) => {
+        const normalized = path.normalize(filePath);
+        return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+    };
+    const referencedPaths = new Set();
+    for (const row of rows) {
+        if (!row.relativePath) continue;
+        const referencedPath = path.resolve(projectRoot, row.relativePath);
+        if (comparePath(referencedPath).startsWith(`${comparePath(projectRoot)}${path.sep}`)) {
+            referencedPaths.add(comparePath(referencedPath));
+        }
+    }
+
+    let removedCount = 0;
+    for (const directory of managedMediaDirectories) {
+        for (const filePath of listFiles(directory)) {
+            if (referencedPaths.has(comparePath(filePath))) continue;
+            fs.unlinkSync(filePath);
+            removedCount += 1;
+        }
+    }
+    return removedCount;
+}
+
 async function migrate(options, ticketIds) {
     if (!fs.existsSync(options.source)) throw new Error(`Source database not found: ${options.source}`);
     if (path.resolve(options.source) === path.resolve(options.destination)) throw new Error('Source and destination databases must be different files.');
@@ -156,6 +197,7 @@ async function migrate(options, ticketIds) {
     const source = await openDatabase(options.source);
     let destination;
     let migrationSucceeded = false;
+    let migratedMediaRows = [];
     try {
         await run(source, 'PRAGMA foreign_keys = ON');
         const placeholders = ticketIds.map(() => '?').join(',');
@@ -190,7 +232,12 @@ async function migrate(options, ticketIds) {
                 await copyRows(destination, table.name, rows);
             }
             await run(destination, 'COMMIT');
-            copyMediaFiles([...(rowsByTable.get('pictures') || []), ...(rowsByTable.get('videos') || []), ...(rowsByTable.get('signatures') || [])], projectRoot);
+            migratedMediaRows = [
+                ...(rowsByTable.get('pictures') || []),
+                ...(rowsByTable.get('videos') || []),
+                ...(rowsByTable.get('signatures') || [])
+            ];
+            copyMediaFiles(migratedMediaRows, projectRoot);
         } catch (error) {
             await run(destination, 'ROLLBACK').catch(() => {});
             throw error;
@@ -216,9 +263,11 @@ async function migrate(options, ticketIds) {
     }
 
     if (options.replaceSource && migrationSucceeded) {
+        const removedMediaCount = removeUnreferencedMedia(migratedMediaRows);
         fs.rmSync(options.source);
         fs.renameSync(options.destination, options.source);
         console.log(`Replaced the old database with the migrated database: ${options.source}`);
+        console.log(`Removed ${removedMediaCount} unreferenced image, video, and signature file(s).`);
     }
 }
 
