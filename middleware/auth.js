@@ -40,5 +40,21 @@ module.exports = {
       console.error('ensureLoggedIn error', err);
       return res.redirect('/login');
     }
+  },
+  ensureLocalLogin: (req, res, next) => {
+    try {
+      const user = req.session && req.session.user;
+      if (!user || user.authMethod !== 'local' || !(user.email || user.Email)) {
+        const returnTo = encodeURIComponent(req.originalUrl);
+        return res.redirect(`/loginPage?returnTo=${returnTo}`);
+      }
+
+      user.email = String(user.email || user.Email || '').toLowerCase();
+      req.user = user;
+      return next();
+    } catch (err) {
+      console.error('ensureLocalLogin error', err);
+      return res.redirect('/loginPage');
+    }
   }
 };

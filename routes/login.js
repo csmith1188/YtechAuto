@@ -55,7 +55,10 @@ router.post("/signup", (req, res) => {
 });
 
 router.get("/loginPage", (req, res) => {
-    res.render("loginPage");
+    const returnTo = typeof req.query.returnTo === 'string' && /^\/customer(?:[/?#]|$)/.test(req.query.returnTo)
+        ? req.query.returnTo
+        : '';
+    res.render("loginPage", { returnTo });
 });
 
 router.post("/loginPage", (req, res) => {
@@ -124,8 +127,11 @@ router.post("/loginPage", (req, res) => {
             } catch (e) { /* ignore upgrade errors */ }
         }
 
-        req.session.user = { id: userId, email, stat: role };
-        return res.redirect('/');
+        req.session.user = { id: userId, email, stat: role, authMethod: 'local' };
+        const returnTo = typeof req.body.returnTo === 'string' && /^\/customer(?:[/?#]|$)/.test(req.body.returnTo)
+            ? req.body.returnTo
+            : '';
+        return res.redirect(returnTo || '/');
     });
 });
 
