@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { ensureLoggedIn } = require('../middleware/auth');
+const { ensureLocalLogin } = require('../middleware/auth');
 
-router.get('/customerDis', ensureLoggedIn, (req, res) => {
+router.get('/customerDis', ensureLocalLogin, (req, res) => {
     const user = req.user;
     if (!user || !user.email) { res.clearCookie('user'); return res.redirect('/login'); }
     const email = String(user.email).toLowerCase();

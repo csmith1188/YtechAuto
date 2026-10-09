@@ -2,9 +2,12 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
-const { ensureLoggedIn } = require('../middleware/auth');
+const { ensureLoggedIn, ensureLocalLogin } = require('../middleware/auth');
 
-router.get('/customer', ensureLoggedIn, (req, res) => {
+router.get('/customer', (req, res, next) => {
+    if (req.query.print === '1') return ensureLoggedIn(req, res, next);
+    return ensureLocalLogin(req, res, next);
+}, (req, res) => {
     const session = req.user || req.cookies.user;
     const ticketId = req.query.ticketId;
 
