@@ -351,6 +351,36 @@ th {
   background: var(--accent-hover);
 }
 
+.save-action {
+  background: #1464d2;
+  color: #fff;
+}
+
+.save-action:hover,
+.save-action.save-clicked {
+  background: #0b4fae;
+  color: #fff;
+}
+
+.save-action.save-success {
+  background: #1464d2;
+  color: #fff;
+}
+
+.save-action.save-failed {
+  background: #b42318;
+  color: #fff;
+}
+
+.save-status {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-weight: 600;
+}
+
+.save-status-success { color: #147a3d; }
+.save-status-failed { color: #b42318; }
+
 .btn-secondary {
   background: var(--content-bg);
   color: var(--text);

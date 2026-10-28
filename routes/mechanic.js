@@ -157,8 +157,26 @@ router.get('/mechanic', ensureLoggedIn, (req, res) => {
     const ticketId = req.query.id || req.query.ticketId;
     const db = req.app.locals.db;
     if (!ticketId) {
-        // when no ticket loaded we allow upload zone (new ticket UI)
-        return res.render('mechanic', { user, uploadZoneVisible: true });
+        if (!db) return res.status(500).send('Database not available');
+
+        const nextNumberSql = `
+            SELECT COALESCE(MAX(CAST(repairOrderNumber AS INTEGER)), 0) + 1 AS nextNumber
+            FROM tickets
+            WHERE repairOrderNumber <> ''
+              AND repairOrderNumber NOT GLOB '*[^0-9]*'
+        `;
+        return db.get(nextNumberSql, [], (numberErr, row) => {
+            if (numberErr) {
+                console.error('Error generating next repair order number:', numberErr);
+                return res.status(500).send('Internal Server Error');
+            }
+            // when no ticket loaded we allow upload zone (new ticket UI)
+            return res.render('mechanic', {
+                user,
+                nextRepairOrderNumber: String(row.nextNumber),
+                uploadZoneVisible: true
+            });
+        });
     }
 
     if (!db) return res.status(500).send('Database not available');
@@ -669,42 +687,42 @@ router.post('/mechanic', ensureLoggedIn, completionPdfUpload.single('completionP
     const tryInsertNew = () => {
         ensureCompletionSignature(null, (signatureErr) => {
             if (signatureErr) return res.status(400).send(signatureErr.message);
-            if (!roNum) return insertNewTicket();
-        const checkSql = `SELECT id FROM tickets WHERE repairOrderNumber = ? LIMIT 1`;
-        db.get(checkSql, [roNum], (chkErr, existing) => {
-            if (chkErr) {
-                console.error('Failed checking existing RO:', chkErr);
-                return res.status(500).send('DB error');
-            }
-            if (existing) {
-                // duplicate exists and this is a new-ticket attempt -> inform user and stop
-                console.log(incomingTicketId)
-                return res.status(409).send('Ticket number already taken');
-            }
-
             return insertNewTicket();
-        });
         });
     };
 
     const insertNewTicket = () => {
-            const storedRoNum = roNum || `DRAFT-${Date.now()}-${Math.round(Math.random() * 1E9)}`;
             const insertSql = `INSERT INTO tickets (repairOrderNumber, date, techName, timeIn, timeOut, totalTime, customerName, customerAddress, customerPhone, customerEmail, concern, diagnosis, recommendedRepairs, dateSigned, stat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-            const params = [storedRoNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus];
-            db.run('BEGIN TRANSACTION', (beginErr) => {
+            db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
                 if (beginErr) return res.status(500).send('Failed to begin ticket save');
-            db.run(insertSql, params, function(insErr) {
-                if (insErr) {
-                    console.error('Failed to insert new ticket:', insErr);
-                    if (insErr.code === 'SQLITE_CONSTRAINT') {
-                        return db.run('ROLLBACK', () => res.status(409).send('Ticket number already taken'));
+
+                const nextNumberSql = `
+                    SELECT COALESCE(MAX(CAST(repairOrderNumber AS INTEGER)), 0) + 1 AS nextNumber
+                    FROM tickets
+                    WHERE repairOrderNumber <> ''
+                      AND repairOrderNumber NOT GLOB '*[^0-9]*'
+                `;
+
+                db.get(nextNumberSql, [], (numberErr, row) => {
+                    if (numberErr) {
+                        return db.run('ROLLBACK', () =>
+                            res.status(500).send('Failed to generate repair order number')
+                        );
                     }
-                    return db.run('ROLLBACK', () => res.status(500).send('Failed to create ticket: ' + (insErr.message || insErr)));
-                }
-                const newId = this.lastID;
-                // finalize repairs/signature save and redirect
-                return finalizeSave(newId);
-            });
+
+                    const storedRoNum = String(row.nextNumber);
+                    const params = [storedRoNum, roDate, technician, timeArrive, timeOut, totTime, custName, custAdd, custPhone, custEmail, concern, diagnosis, recommendedRepairsText, sDate, ticketStatus];
+
+                    db.run(insertSql, params, function(insErr) {
+                        if (insErr) {
+                            console.error('Failed to insert new ticket:', insErr);
+                            return db.run('ROLLBACK', () => res.status(500).send('Failed to create ticket: ' + (insErr.message || insErr)));
+                        }
+                        const newId = this.lastID;
+                        // finalize repairs/signature save and redirect
+                        return finalizeSave(newId);
+                    });
+                });
             });
     };
 

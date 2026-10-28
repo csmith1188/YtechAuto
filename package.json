@@ -5,6 +5,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "init-database": "node scripts/initDatabase.js",
+    "renumber-repair-orders": "node scripts/renumberRepairOrders.js",
     "migrate": "node scripts/migrateTickets.js"
   },
   "keywords": [],

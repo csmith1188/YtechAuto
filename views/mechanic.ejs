@@ -46,7 +46,9 @@
         <div class="form-grid">
           <div class="form-group">
             <label for="roNum">Repair Order or Task Number #</label>
-            <input type="text" name="roNum" id="roNum" placeholder="Enter RO number">
+            <input type="text" name="roNum" id="roNum"
+              value="<%= (typeof ticket !== 'undefined' && ticket && ticket.repairOrderNumber) || (typeof nextRepairOrderNumber !== 'undefined' ? nextRepairOrderNumber : '') %>"
+              placeholder="Repair order number" readonly>
           </div>
           <div class="form-group">
             <label for="roDate">Date</label>
@@ -194,7 +196,8 @@
             <input type="date" name="sDate" id="sDate" placeholder="Date">
           </div>
         <div class="form-group full-width">
-          <label>Customer Signature</label>
+          <label>Customer Signature</label> 
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:-4px">Hold Shift or Left Click to sign</p>
           <div class="signature-container">
             <canvas id="signatureCanvas" width="400" height="200" style="border: 1px solid var(--border); cursor: crosshair; background: white;"></canvas>
             <input type="hidden" name="signature" id="signatureData">
@@ -205,7 +208,7 @@
         </div>
 
 
-        <button id="firstSub" type="submit" class="btn btn-primary save-ticket editable-only">Save Ticket</button>
+        <button id="firstSub" type="submit" class="btn btn-primary save-action save-ticket editable-only">Save Ticket</button>
         <input type="hidden" id="ticketStatus" name="ticketStatus" value="">
       </form>
     </section>
@@ -242,7 +245,7 @@
                 <div class="form-group"><label for="plate">Plate</label><input id="plate" name="plate" type="text"></div>
                 <div class="form-group full-width"><label for="comments">Comments</label><input id="comments" name="comments" type="text"></div>
               </div>
-              <button type="submit" class="btn btn-secondary editable-only">Save</button>
+              <button type="submit" class="btn btn-primary save-action editable-only">Save</button>
             </form>
           </div>
         </div>
@@ -379,7 +382,7 @@
     </div>
     </div>
 
-    <button type="button" class="section-save btn btn-secondary editable-only" data-section="courtesy-check" style="margin-top:8px">Save</button>
+    <button type="button" class="section-save save-action btn btn-primary editable-only" data-section="courtesy-check" style="margin-top:8px">Save</button>
   </div>
 </div>
 
@@ -402,7 +405,7 @@
           <div class="form-group"><label>Alignment Check?</label><select name="alignmentCheck"><option>Yes</option><option>No</option><option>N/A</option></select></div>
           <div class="form-group full-width"><label>Comments</label><input type="text" name="tireComments" placeholder="Tire comments"></div>
               </div>
-              <button type="submit" class="section-save btn btn-secondary editable-only" style="margin-top:8px">Save</button>
+              <button type="submit" class="section-save save-action btn btn-primary editable-only" style="margin-top:8px">Save</button>
             </form>
           </div>
         </div>
@@ -556,7 +559,7 @@
       <input type="text" placeholder="Steering & Suspension comments">
     </div>
 
-    <button type="button" class="section-save btn btn-secondary editable-only" data-section="steering" style="margin-top:8px">Save</button>
+    <button type="button" class="section-save save-action btn btn-primary editable-only" data-section="steering" style="margin-top:8px">Save</button>
   </div>
 </div>
 
@@ -608,7 +611,7 @@
 
             <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Brake Comments"></div>
 
-            <button type="button" class="section-save btn btn-secondary editable-only" data-section="brakes" style="margin-top:8px">Save</button>
+            <button type="button" class="section-save save-action btn btn-primary editable-only" data-section="brakes" style="margin-top:8px">Save</button>
 
           </div>
         </div>
@@ -650,7 +653,7 @@
               
             </div>
             <div class="form-group full-width"><label>Comments</label><input type="text" placeholder="Emissions / Electrical Lighting comments"></div>
-            <button type="button" class="section-save btn btn-secondary editable-only" data-section="emissions" style="margin-top:8px">Save</button>
+            <button type="button" class="section-save save-action btn btn-primary editable-only" data-section="emissions" style="margin-top:8px">Save</button>
           </div>
         </div>
 
